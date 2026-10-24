@@ -1,0 +1,24 @@
+- Microsoft
+    - health care
+- Creao Ai (we step in for urgent care)
+    - have one of the pipelines be this (someone else can do this)
+    - bio analysis agent (SD)
+    - some will be web hooks (ex. flow etc)
+    - when prompting, use requests
+- Fetch / Visa
+    - shopping agent
+    - some will be web hooks (ex. flow etc)
+    - when prompting, use requests
+- Apify for the web search 
+    - jev (small model first) to determine if its using medical advice 
+    - use apify if jev determines 
+- Cartesia
+    - talk in the app
+- Convex
+    - db
+- Snowflake api for the llms 
+- Commit fellowship (this can be a startup)
+- Deploy on Godaddy for the domain 
+- Elasticsearch for best use of jina (embeddings for the data)
+
+
