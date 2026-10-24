@@ -1,0 +1,59 @@
+import { httpRouter } from "convex/server";
+import { httpAction } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { auth } from "./auth";
+
+const http = httpRouter();
+auth.addHttpRoutes(http);
+
+// Telegram webhook. Register with:
+// curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<CONVEX_SITE_URL>/telegram&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+http.route({
+  path: "/telegram",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    // Fail closed: reject everything unless the secret is set and matches.
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    const given = req.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
+    if (!secret || !safeEqual(given, secret)) {
+      return new Response("forbidden", { status: 403 });
+    }
+    const update = await req.json();
+    const cb = update.callback_query;
+    if (cb?.data && cb.message?.chat?.type === "private") {
+      await ctx.runMutation(internal.telegram.handleLinkDecision, {
+        chatId: String(cb.message.chat.id),
+        callbackId: String(cb.id),
+        messageId: cb.message.message_id,
+        data: String(cb.data),
+      });
+      return new Response("ok");
+    }
+    const msg = update.message;
+    // Only private chats; always 200 so Telegram doesn't retry.
+    if (msg?.chat?.type === "private") {
+      const chatId = String(msg.chat.id);
+      const name = [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ") || undefined;
+      if (msg.text) {
+        await ctx.runMutation(internal.telegram.handleIncoming, { chatId, text: msg.text, name });
+      } else if (msg.location) {
+        await ctx.runMutation(internal.telegram.saveSharedLocation, {
+          chatId,
+          name,
+          lat: msg.location.latitude,
+          lon: msg.location.longitude,
+        });
+      }
+    }
+    return new Response("ok");
+  }),
+});
+
+function safeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+export default http;
