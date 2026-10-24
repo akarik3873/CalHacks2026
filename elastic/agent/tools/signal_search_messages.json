@@ -1,0 +1,9 @@
+{
+  "id": "signal_search_messages",
+  "type": "index_search",
+  "description": "Searches the person's own words: messages and symptom notes they texted or typed, matched by meaning (e.g. 'wiped out' finds fatigue). Use it to quote how they described something and when.",
+  "tags": ["signal"],
+  "configuration": {
+    "pattern": "health-timeline"
+  }
+}

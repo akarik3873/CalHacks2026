@@ -1,0 +1,13 @@
+{
+  "id": "signal_before_after",
+  "type": "esql",
+  "description": "Compares one metric in the 6 weeks before vs. the 6 weeks after a date, such as the day a medication started. For symptoms compare entries (how often) and avg_severity; for vitals and sleep compare avg_value.",
+  "tags": ["signal"],
+  "configuration": {
+    "query": "FROM health-timeline | WHERE name == ?metric | EVAL days_from_pivot = DATE_DIFF(\"day\", TO_DATETIME(?pivot), @timestamp) | WHERE days_from_pivot >= -42 AND days_from_pivot < 42 | EVAL period = CASE(days_from_pivot < 0, \"before\", \"after\") | STATS entries = COUNT(*), avg_value = ROUND(AVG(value), 1), avg_severity = ROUND(AVG(severity), 1) BY period | SORT period DESC",
+    "params": {
+      "metric": { "type": "string", "description": "Exact name from signal_list_tracked, e.g. fatigue, resting_hr, sleep_hours" },
+      "pivot": { "type": "string", "description": "The date to compare around, ISO format, e.g. 2026-07-17" }
+    }
+  }
+}

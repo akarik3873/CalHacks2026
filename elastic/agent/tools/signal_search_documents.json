@@ -1,0 +1,9 @@
+{
+  "id": "signal_search_documents",
+  "type": "index_search",
+  "description": "Searches the person's lab reports and doctor visit notes (full text). Use it to read what a report or visit note actually says, and to cite it by title and date.",
+  "tags": ["signal"],
+  "configuration": {
+    "pattern": "health-docs"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "@timestamp": { "type": "date" },
+      "user_id": { "type": "keyword" },
+      "kind": { "type": "keyword" },
+      "name": { "type": "keyword" },
+      "action": { "type": "keyword" },
+      "value": { "type": "double" },
+      "unit": { "type": "keyword" },
+      "severity": { "type": "integer" },
+      "ref_low": { "type": "double" },
+      "ref_high": { "type": "double" },
+      "flag": { "type": "keyword" },
+      "doc_id": { "type": "keyword" },
+      "source": { "type": "keyword" },
+      "text": { "type": "text", "copy_to": "text_semantic" },
+      "text_semantic": { "type": "semantic_text", "inference_id": "jina-embeddings" }
+    }
+  }
+}

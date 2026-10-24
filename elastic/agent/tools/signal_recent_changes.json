@@ -1,0 +1,10 @@
+{
+  "id": "signal_recent_changes",
+  "type": "esql",
+  "description": "What changed most in the last 30 days compared with the 60 days before, for every symptom, vital, and sleep metric. Counts are per 30 days so they compare directly. Use it for open questions like 'what's going on lately?'.",
+  "tags": ["signal"],
+  "configuration": {
+    "query": "FROM health-timeline | WHERE @timestamp >= NOW() - 90 days AND kind IN (\"symptom\", \"vital\", \"sleep\") | EVAL recent = @timestamp >= NOW() - 30 days | STATS recent_entries = SUM(CASE(recent, 1, 0)), prior_entries = SUM(CASE(recent, 0, 1)), recent_avg = AVG(CASE(recent, value, null)), prior_avg = AVG(CASE(recent, null, value)) BY kind, name | EVAL prior_per_30_days = ROUND(prior_entries / 2.0, 1), entries_change = recent_entries - prior_per_30_days, recent_avg = ROUND(recent_avg, 1), prior_avg = ROUND(prior_avg, 1), size_of_change = ABS(entries_change) | SORT size_of_change DESC | DROP size_of_change",
+    "params": {}
+  }
+}

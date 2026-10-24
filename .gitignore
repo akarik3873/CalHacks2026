@@ -1,1 +1,6 @@
 .agent-sync.log
+node_modules/
+.env
+.env.local
+.env*.local
+elastic/seed/out/

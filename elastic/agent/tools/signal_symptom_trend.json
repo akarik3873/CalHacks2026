@@ -1,0 +1,12 @@
+{
+  "id": "signal_symptom_trend",
+  "type": "esql",
+  "description": "Weekly count and average severity (1-10) of one symptom over the last 6 months. Use it to see when a symptom started, rose, or fell. The symptom must be an exact name from signal_list_tracked, e.g. fatigue or headache.",
+  "tags": ["signal"],
+  "configuration": {
+    "query": "FROM health-timeline | WHERE kind == \"symptom\" AND name == ?symptom AND @timestamp >= NOW() - 180 days | STATS mentions = COUNT(*), avg_severity = ROUND(AVG(severity), 1) BY week = DATE_TRUNC(1 week, @timestamp) | SORT week ASC",
+    "params": {
+      "symptom": { "type": "string", "description": "Exact symptom name from signal_list_tracked, e.g. fatigue" }
+    }
+  }
+}

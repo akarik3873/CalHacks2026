@@ -1,0 +1,12 @@
+{
+  "id": "signal_lab_history",
+  "type": "esql",
+  "description": "All results for one lab test over time, with units, reference range, and a low/normal/high flag, plus the doc_id of the lab report it came from. The test must be an exact name from signal_list_tracked, e.g. ferritin, hemoglobin, tsh.",
+  "tags": ["signal"],
+  "configuration": {
+    "query": "FROM health-timeline | WHERE kind == \"lab\" AND name == ?test | KEEP @timestamp, name, value, unit, ref_low, ref_high, flag, doc_id | SORT @timestamp ASC",
+    "params": {
+      "test": { "type": "string", "description": "Exact lab test name from signal_list_tracked, e.g. ferritin" }
+    }
+  }
+}

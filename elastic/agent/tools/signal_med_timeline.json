@@ -1,0 +1,10 @@
+{
+  "id": "signal_med_timeline",
+  "type": "esql",
+  "description": "Every medication and supplement the person started or stopped, with dates, dose, and their note. Use it to check whether a change in symptoms lines up with a medication change.",
+  "tags": ["signal"],
+  "configuration": {
+    "query": "FROM health-timeline | WHERE kind == \"med\" | KEEP @timestamp, name, action, value, unit, text | SORT @timestamp ASC",
+    "params": {}
+  }
+}

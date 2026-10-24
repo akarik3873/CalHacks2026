@@ -1,0 +1,20 @@
+{
+  "name": "calhacks2026",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "elastic:setup": "tsx --env-file=.env elastic/scripts/setup.ts",
+    "elastic:reset": "tsx --env-file=.env elastic/scripts/setup.ts --reset",
+    "elastic:seed": "tsx --env-file=.env elastic/scripts/seed.ts",
+    "elastic:seed:dry": "tsx elastic/scripts/seed.ts --dry-run",
+    "elastic:search": "tsx --env-file=.env elastic/scripts/search.ts",
+    "elastic:ask": "tsx --env-file=.env elastic/scripts/ask.ts",
+    "elastic:ingest-url": "tsx --env-file=.env elastic/scripts/ingest-url.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

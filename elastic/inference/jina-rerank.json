@@ -1,0 +1,10 @@
+{
+  "task_type": "rerank",
+  "body": {
+    "service": "jinaai",
+    "service_settings": {
+      "api_key": "${JINA_API_KEY}",
+      "model_id": "jina-reranker-v2-base-multilingual"
+    }
+  }
+}

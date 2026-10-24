@@ -1,0 +1,10 @@
+{
+  "id": "signal_list_tracked",
+  "type": "esql",
+  "description": "Lists everything recorded in the person's health timeline, grouped by kind (symptom, med, vital, sleep, lab, message) and exact name, with entry counts and first/last dates. Call this first to learn the exact names other tools expect.",
+  "tags": ["signal"],
+  "configuration": {
+    "query": "FROM health-timeline | STATS entries = COUNT(*), first_seen = MIN(@timestamp), last_seen = MAX(@timestamp) BY kind, name | SORT kind ASC, entries DESC",
+    "params": {}
+  }
+}

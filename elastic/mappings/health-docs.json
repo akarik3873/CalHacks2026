@@ -1,0 +1,15 @@
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "user_id": { "type": "keyword" },
+      "doc_id": { "type": "keyword" },
+      "doc_type": { "type": "keyword" },
+      "doc_date": { "type": "date" },
+      "title": { "type": "text" },
+      "source_url": { "type": "keyword" },
+      "content": { "type": "text", "copy_to": "content_semantic" },
+      "content_semantic": { "type": "semantic_text", "inference_id": "jina-embeddings" }
+    }
+  }
+}

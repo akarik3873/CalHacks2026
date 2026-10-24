@@ -1,0 +1,9 @@
+{
+  "id": "signal_search_research",
+  "type": "index_search",
+  "description": "Searches medical background sources (web pages and papers) saved for this app. Use it to check whether a pattern has a known explanation, and cite the source URL.",
+  "tags": ["signal"],
+  "configuration": {
+    "pattern": "research"
+  }
+}

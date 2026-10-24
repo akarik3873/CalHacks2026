@@ -1,0 +1,13 @@
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "url": { "type": "keyword" },
+      "title": { "type": "text" },
+      "query": { "type": "keyword" },
+      "fetched_at": { "type": "date" },
+      "content": { "type": "text", "copy_to": "content_semantic" },
+      "content_semantic": { "type": "semantic_text", "inference_id": "jina-embeddings" }
+    }
+  }
+}
