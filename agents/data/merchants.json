@@ -1,0 +1,35 @@
+{
+  "_note": "Fictional merchants with simulated prices, stock, and delivery times. Prices are each product's list_price times price_factor.",
+  "merchants": [
+    {
+      "id": "bayview",
+      "name": "Bayview Pharmacy",
+      "price_factor": 0.92,
+      "delivery_fee": 0.00,
+      "delivery_minutes": 2880,
+      "stock": 25,
+      "out_of_stock": ["dex4-gel-3"],
+      "not_carried": []
+    },
+    {
+      "id": "quickcare",
+      "name": "QuickCare Delivery",
+      "price_factor": 1.12,
+      "delivery_fee": 5.99,
+      "delivery_minutes": 45,
+      "stock": 10,
+      "out_of_stock": [],
+      "not_carried": ["levoit-core300-filter", "theraband-set"]
+    },
+    {
+      "id": "corner",
+      "name": "Corner Health Market",
+      "price_factor": 1.00,
+      "delivery_fee": 2.99,
+      "delivery_minutes": 240,
+      "stock": 15,
+      "out_of_stock": ["claritin-10mg-30"],
+      "not_carried": ["stelo-2pk"]
+    }
+  ]
+}
