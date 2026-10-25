@@ -10,9 +10,11 @@
 
 import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
+import type * as creao from "../creao.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as lib_cortex from "../lib/cortex.js";
+import type * as lib_creao from "../lib/creao.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_jina from "../lib/jina.js";
 import type * as lib_telegram from "../lib/telegram.js";
@@ -30,9 +32,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   chat: typeof chat;
+  creao: typeof creao;
   crons: typeof crons;
   http: typeof http;
   "lib/cortex": typeof lib_cortex;
+  "lib/creao": typeof lib_creao;
   "lib/env": typeof lib_env;
   "lib/jina": typeof lib_jina;
   "lib/telegram": typeof lib_telegram;

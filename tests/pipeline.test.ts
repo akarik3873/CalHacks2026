@@ -68,6 +68,7 @@ describe("app chat", () => {
       "read_page",
       "bio_research",
       "save_location",
+      "analyze_symptoms",
     ]);
     expect(cx.every((c) => c.body.max_tokens === undefined && c.body.stream === false)).toBe(true);
   });
