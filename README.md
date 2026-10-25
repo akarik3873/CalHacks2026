@@ -1,17 +1,19 @@
 # CalHacks2026 — AI Health Assistant
 
-Chat in the app (web + iOS + Android, Expo) or text the Telegram bot. See `plan2.md`.
+Chat in the app (web + iOS + Android, Expo) or text the Telegram bot, by typing or by voice. See `plan2.md`.
 
 ## Layout
 - `App.tsx`, `src/` — Expo app: sign-in, chat, settings (voice mode, "Text me on Telegram").
+  - `useVoice.ts` — voice mode: mic → Cartesia STT → send; replies → Cartesia TTS. `speaker.web.ts` / `speaker.ts` — streaming playback on web / iOS + Android (see Voice below).
 - `convex/` — backend.
   - `pipeline.ts` — shared pipeline: Jina embed → vector search memory → Cortex triage → Cortex core model + tools → reply.
-  - `chat.ts` — app API. `telegram.ts` + `http.ts` — Telegram webhook and account linking. `voice.ts` — Cartesia tokens.
-  - `lib/` — Cortex, Jina, Telegram clients and model tools (`web_search`, `read_page`, `bio_research`).
+  - `chat.ts` — app API. `telegram.ts` + `http.ts` — Telegram webhook, account linking and voice notes.
+  - `voice.ts` — Cartesia tokens for the app, and `/tts` (a streamed MP3 of a reply, for iOS/Android).
+  - `lib/` — Cortex, Jina, Telegram, Cartesia (`cartesia.ts`) clients, `speech.ts` (Markdown → speakable text), and model tools (`web_search`, `read_page`, `bio_research`).
   - `creao.ts` + `lib/creao.ts` — detailed symptom analysis by the CREAO agent (see below).
-- `creao/` — the CREAO agent bundle: `SKILL.md` (its program), `config.yaml` (form fields, memory), `README.md`.
   - `shop.ts` + `lib/shopping/` — Health Supply Shopper: Amazon and Walmart links for OTC health supplies (see below).
   - `lib/jev.ts` — routes each message: shopping, symptom analyzer, or regular.
+- `creao/` — the CREAO agent bundle: `SKILL.md` (its program), `config.yaml` (form fields, memory), `README.md`.
 
 ## Live
 - **Web app:** https://merry-capybara-181.convex.site (Expo web build served by Convex static hosting, on the dev deployment). Redeploy with `npm run deploy:web`.
@@ -32,7 +34,7 @@ Voice recording needs a development build on native (`npx expo run:ios`), not Ex
 | `SNOWFLAKE_PAT` | Snowflake programmatic access token |
 | `CORTEX_SHOPPER_MODEL` / `CORTEX_CORE_MODEL` | optional, default `claude-haiku-4-5` / `openai-gpt-5.4` (core must be a Claude/OpenAI model for tools) |
 | `JINA_API_KEY` | embeddings, search, reader |
-| `CARTESIA_API_KEY` | voice; optional `CARTESIA_VOICE_ID` |
+| `CARTESIA_API_KEY` | voice (app voice mode and Telegram voice notes); optional `CARTESIA_VOICE_ID` (default: the Sonic voice `db6b0ed5-…`) |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` | bot |
 | `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL` | Convex Auth (`npx @convex-dev/auth` sets these) |
 | `CREAO_API_KEY` | `capi_...` key from the CREAO agent's page on agent.creao.ai |
@@ -77,6 +79,42 @@ Finds over-the-counter health supplies: picks the cheapest approved items that f
 **Safety rules (in code):** no prescription items (and no OTC swap for one you asked for); never over the stated budget or the profile's cap for that kit; no substitutions (only the exact SKU, brand, or ingredient + strength in the profile); nothing is ever bought for the user; emergencies get a call-911 reply and no order.
 
 **Simulated:** only the demo user's profile (`lib/shopping/data.ts`).
+
+## Voice (Cartesia)
+Voice works everywhere the assistant does. In the app, turn on **Settings → Voice mode**: tap **Mic**, speak, tap **Stop**, and the reply is read aloud as it streams in. On Telegram, just send a voice note: the bot answers in text and with a voice note.
+
+**Cartesia features used**
+| Feature | Where | How |
+|---|---|---|
+| **Sonic TTS over WebSocket** (`sonic-3.6`, raw `pcm_f32le`, 44.1 kHz) | Web app | `src/speaker.web.ts` keeps one WebSocket open and plays each audio chunk as it arrives (Web Audio, scheduled back to back), so speech starts after the first chunk instead of after the whole reply. The next reply is generated while the current one plays; **Stop** cancels the context at Cartesia. |
+| **Sonic TTS, streamed bytes** (`/tts/bytes`, MP3) | iOS/Android app, Telegram | The app plays `GET /tts?message=<id>`, which Convex streams straight from Cartesia, so playback starts early. Telegram gets the MP3 as a voice note (`sendVoice`). |
+| **Batch STT** (`ink-whisper`) | App mic, Telegram voice notes | The app sends its recording (WebM, MP4 or M4A); Convex sends Telegram's Ogg/Opus voice notes. |
+| **Access tokens** (`/access-token`, STT + TTS grants, 5 minutes) | App | `voice.token` mints one for a signed-in user, so the API key never ships in the app. |
+
+**How a voice turn works**
+1. **In:** the app records with `expo-audio` and calls Cartesia STT with a short-lived token. A Telegram voice note is downloaded by Convex (`getFile`) and transcribed with the server key.
+2. **Same pipeline:** the transcript runs through routing, memory, shopping and the model exactly like typed text.
+3. **Out:** `convex/lib/speech.ts` turns the Markdown reply into speakable text (no URLs, symbols or "Sources:" lists; long replies stop at a sentence and say the rest is in the text). Store links are shown but never read aloud.
+
+**Safety, privacy and accessibility**
+- The Cartesia API key stays in Convex. The app only gets 5-minute tokens, and `/tts` only speaks the signed-in user's own replies.
+- Audio isn't stored: recordings and voice notes are sent to Cartesia for transcription and only the text is kept, like a typed message. The Telegram reply quotes what was heard, so a mistranscription is easy to spot.
+- Voice notes over 3 minutes, or past the daily message limit, are turned away before any audio is downloaded or sent to Cartesia.
+- The Mic button shows every step (waiting for permission, listening, transcribing, speaking), announced to screen readers on web and Android, explains blocked or missing microphones (with Open Settings on iOS/Android), and stops itself after 2 minutes. Spoken replies can be stopped at any time, and turning voice mode off stops both recording and speech.
+- Speech is optional: if Cartesia fails, the text reply is always there.
+
+**Setup**
+1. Create a key at [play.cartesia.ai](https://play.cartesia.ai) and run `npx convex env set CARTESIA_API_KEY sk_car_...` (optionally `CARTESIA_VOICE_ID`).
+2. Web: open the app over https (or localhost), sign in, and turn on Voice mode. The browser asks for the microphone on the first tap of **Mic**.
+3. iOS/Android: voice needs a development build (`npx expo run:ios` / `npx expo run:android`); Expo Go can't record.
+4. Telegram: nothing extra; voice notes work once the bot's webhook is set (see below).
+
+**Known limitations**
+- STT is batch, not real-time: the transcript comes after you tap Stop, not while you speak, and there's no voice barge-in (tap Stop instead).
+- English only (`language: "en"` for STT and TTS).
+- On iOS/Android, replies stream as MP3 through Convex (one extra hop) rather than over the WebSocket, because the app can't play raw PCM there. Voice on a real phone still needs testing.
+- Web browsers only allow sound after a tap on the page; tapping Send or Mic unlocks it.
+- Spoken replies are capped at about 2,500 characters (about 3 minutes of speech).
 
 ## Telegram setup
 1. `@BotFather` → `/newbot` → token.
