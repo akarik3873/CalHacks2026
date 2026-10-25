@@ -27,14 +27,20 @@ export function fakeEmbedding(text: string): number[] {
   return v.map((x) => x / norm);
 }
 
+// A CREAO run as GET /runs/:id returns it. Successive polls take the next entry; the last one repeats.
+export type CreaoRunReply = { status: string; result?: { text?: string; chatText?: string }; errorCode?: string };
+
 export function mockApis(opts: {
   triage?: CortexReply | ((body: any) => CortexReply);
   core?: CortexReply[];
   jinaEmbedFail?: boolean;
   telegramRejectHtml?: boolean;
+  creaoStartFail?: boolean;
+  creaoRuns?: CreaoRunReply[];
 } = {}) {
   const calls: Call[] = [];
   const core = [...(opts.core ?? [{ content: "Rest and drink water." }])];
+  const creaoRuns = [...(opts.creaoRuns ?? [{ status: "completed", result: { text: "## What the symptoms and data suggest\nReport." } }])];
   const fetchMock = vi.fn(async (input: any, init?: RequestInit) => {
     const url = String(input);
     let body: any;
@@ -74,6 +80,14 @@ export function mockApis(opts: {
       return Response.json({ ok: true });
     }
     if (url === "https://api.cartesia.ai/access-token") return Response.json({ token: "tok_123" });
+    if (url.startsWith("https://agent.creao.ai/api/v1/apps/")) {
+      if (init?.method === "POST") {
+        if (opts.creaoStartFail) return new Response("insufficient credits", { status: 402 });
+        return Response.json({ id: "run_1", status: "pending", appId: "app", appName: "Symptom & Biosensor Health Analyzer" });
+      }
+      const next = creaoRuns.length > 1 ? creaoRuns.shift()! : creaoRuns[0];
+      return Response.json({ id: url.split("/runs/")[1], ...next });
+    }
     return new Response(`unmocked ${url}`, { status: 404 });
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -99,6 +113,8 @@ export async function createAppUser(t: ReturnType<typeof setup>, email = "a@exam
 }
 
 export const cortexCalls = (calls: Call[]) => calls.filter((c) => c.url.includes("snowflakecomputing"));
+export const creaoStarts = (calls: Call[]) => calls.filter((c) => c.url.includes("agent.creao.ai") && c.init?.method === "POST");
+export const creaoPolls = (calls: Call[]) => calls.filter((c) => c.url.includes("agent.creao.ai") && c.init?.method !== "POST");
 export const telegramSends = (calls: Call[]) => calls.filter((c) => c.url.includes("api.telegram.org") && c.url.endsWith("/sendMessage"));
 export const telegramTyping = (calls: Call[]) => calls.filter((c) => c.url.endsWith("/sendChatAction"));
 

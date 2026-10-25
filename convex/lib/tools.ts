@@ -57,6 +57,33 @@ export const saveLocationTool: ToolDef = {
   },
 };
 
+// Handled in the pipeline: it starts a background CREAO run for this user (convex/creao.ts).
+export const analyzeSymptomsTool: ToolDef = {
+  type: "function",
+  function: {
+    name: "analyze_symptoms",
+    description:
+      "Start a detailed analysis of the user's symptoms by the CREAO symptom analyzer, which ranks the 1-3 most likely " +
+      "conditions with reasoning and care guidance. Use only when the user asks what could be causing their symptoms " +
+      "or asks for a detailed analysis. It runs in the background; the report arrives as a separate message in a few " +
+      "minutes. Sends what the user told you to the analysis service. Pass only details the user actually gave.",
+    parameters: {
+      type: "object",
+      properties: {
+        symptoms: { type: "string", description: "Each symptom with onset, severity, pattern, triggers, and any negatives the user mentioned" },
+        symptom_duration: { type: "string", description: "How long, and whether it's worsening, stable or improving" },
+        age: { type: "integer" },
+        sex: { type: "string", enum: ["female", "male", "other", "unspecified"] },
+        chronic_conditions: { type: "string", description: "Existing long-term diagnoses and regular medications" },
+        biosensor_data: { type: "string", description: "Health app metrics the user shared (heart rate, sleep, steps, etc.)" },
+        cycle_data: { type: "string", description: "Menstrual cycle history the user shared" },
+        last_period_start: { type: "string" },
+      },
+      required: ["symptoms"],
+    },
+  },
+};
+
 export async function runTool(name: string, rawArgs: string): Promise<string> {
   try {
     const args = JSON.parse(rawArgs || "{}");

@@ -6,7 +6,8 @@ import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { ChatMessage, complete, CORE_MODEL, TRIAGE_MODEL } from "./lib/cortex";
 import { embed } from "./lib/jina";
-import { runTool, saveLocationTool, toolDefs } from "./lib/tools";
+import { analyzeSymptomsTool, runTool, saveLocationTool, toolDefs } from "./lib/tools";
+import { parseInputs } from "./lib/creao";
 import { sendTelegram, sendTyping } from "./lib/telegram";
 import { channel } from "./schema";
 
@@ -19,6 +20,7 @@ const SYSTEM_PROMPT = `You are a careful, friendly AI health assistant.
 - Use tools when you need current or specific info: web_search, read_page, bio_research (PubMed). Cite sources as links.
 - Use the "Relevant past messages" to remember what the user told you before.
 - If the user tells you where they are (city, zip, address), call save_location so you remember it.
+- If the user asks what could be causing their symptoms, or wants a detailed analysis, call analyze_symptoms with what they told you. It runs in the background; tell them the report will arrive in a few minutes.
 - Format with simple Markdown only: **bold**, *italic*, bullet lists, [links](url). No tables.`;
 
 const URGENT_PROMPT = `TRIAGE FLAGGED THIS AS URGENT.
@@ -81,6 +83,11 @@ export const respond = internalAction({
         typing,
         saveLocation: (location) =>
           ctx.runMutation(internal.pipeline.saveLocation, { userId, location }),
+        analyzeSymptoms: async (rawArgs) => {
+          const parsed = parseInputs(rawArgs);
+          if ("error" in parsed) return `Tool error: ${parsed.error}`;
+          return ctx.runMutation(internal.creao.request, { userId, channel: message.channel, inputs: parsed.inputs });
+        },
       });
     } catch (e) {
       console.error("pipeline failed", e);
@@ -127,6 +134,7 @@ async function runCore(opts: {
   location?: string;
   typing: () => void;
   saveLocation: (location: string) => Promise<null>;
+  analyzeSymptoms: (rawArgs: string) => Promise<string>;
 }): Promise<string> {
   const { message, memory, history, triage, location } = opts;
   const system = [SYSTEM_PROMPT];
@@ -150,20 +158,21 @@ async function runCore(opts: {
     const { content, toolCalls } = await complete({
       model: CORE_MODEL(),
       messages,
-      tools: [...toolDefs, saveLocationTool],
+      tools: [...toolDefs, saveLocationTool, analyzeSymptomsTool],
     });
     if (!toolCalls.length) return content?.trim() || "Sorry, I don't have an answer for that.";
     opts.typing();
     messages.push({ role: "assistant", content, tool_calls: toolCalls });
     for (const call of toolCalls) {
-      messages.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content:
-          call.function.name === "save_location"
-            ? await runSaveLocation(call.function.arguments, opts.saveLocation)
-            : await runTool(call.function.name, call.function.arguments),
-      });
+      let result: string;
+      if (call.function.name === "save_location") {
+        result = await runSaveLocation(call.function.arguments, opts.saveLocation);
+      } else if (call.function.name === "analyze_symptoms") {
+        result = await opts.analyzeSymptoms(call.function.arguments).catch((e) => `Tool error: ${(e as Error).message}`);
+      } else {
+        result = await runTool(call.function.name, call.function.arguments);
+      }
+      messages.push({ role: "tool", tool_call_id: call.id, content: result });
     }
   }
   // Out of tool rounds: ask for a final answer without tools.
@@ -220,17 +229,24 @@ export const setEmbedding = internalMutation({
 
 export const saveReply = internalMutation({
   args: { userId: v.id("users"), text: v.string(), channel, urgent: v.boolean() },
-  handler: async (ctx, args) => {
-    const messageId = await ctx.db.insert("messages", { ...args, role: "assistant" });
-    await ctx.scheduler.runAfter(0, internal.pipeline.embedReply, { messageId });
-    if (args.channel === "telegram") {
-      await ctx.scheduler.runAfter(0, internal.pipeline.deliverTelegram, {
-        userId: args.userId,
-        text: args.text,
-      });
-    }
-  },
+  handler: (ctx, args) => saveAssistantReply(ctx, args),
 });
+
+// Store an assistant message, embed it, and send it on Telegram if that's where the user is.
+// Also used for replies that arrive later, like CREAO analysis reports.
+export async function saveAssistantReply(
+  ctx: MutationCtx,
+  args: { userId: Id<"users">; text: string; channel: "app" | "telegram"; urgent: boolean },
+) {
+  const messageId = await ctx.db.insert("messages", { ...args, role: "assistant" });
+  await ctx.scheduler.runAfter(0, internal.pipeline.embedReply, { messageId });
+  if (args.channel === "telegram") {
+    await ctx.scheduler.runAfter(0, internal.pipeline.deliverTelegram, {
+      userId: args.userId,
+      text: args.text,
+    });
+  }
+}
 
 // Store an embedding for assistant replies too, so they show up in memory search.
 export const embedReply = internalAction({
