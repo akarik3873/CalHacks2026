@@ -32,7 +32,7 @@ _Last updated: 2026-10-25_
 9. Optional: move the core model up with `npx convex env set CORTEX_CORE_MODEL openai-gpt-6.1-sol` (default is `openai-gpt-5.4`).
 
 ## Bugs (known, not fixed)
-- **Silent Mic button:** no "waiting for permission" state, and errors when starting a recording are swallowed (`start()` in `src/Chat.tsx`).
+- None open.
 
 ## Later
 - Google sign-in.
@@ -54,4 +54,5 @@ _Last updated: 2026-10-25_
 - Shopper ported from Python (Fetch.ai) to TypeScript in Convex (`convex/shop.ts`, `convex/lib/shopping/`), Snowflake reads requests; headache kit added. `agents/` removed (no ASI:One/Fetch.ai prize).
 - Merged `fetch-shopping-agent` and `creao-symptom-analyzer` (creao/, `analyze_symptoms` tool, `/creao` webhook).
 - Cartesia voice (short-lived tokens, STT in, TTS out).
+- Mic button fixed (2026-10-25): shows "Waiting for microphone permission…", "Listening…" and "Transcribing…"; blocked, missing or busy mics get a clear message (Open Settings on native); double taps ignored; recordings stop at 2 minutes or when voice mode is turned off.
 - Daily cleanup of expired link codes; sign-up error messages.

@@ -14,7 +14,8 @@ export async function transcribe(t: CartesiaToken, uri: string): Promise<string>
   const form = new FormData();
   if (Platform.OS === "web") {
     const blob = await (await fetch(uri)).blob();
-    form.append("file", blob, "audio.webm");
+    // Chrome and Firefox record WebM; Safari records MP4. The name tells Cartesia which container it is.
+    form.append("file", blob, blob.type.includes("mp4") ? "audio.mp4" : "audio.webm");
   } else {
     form.append("file", { uri, name: "audio.m4a", type: "audio/m4a" } as any);
   }
