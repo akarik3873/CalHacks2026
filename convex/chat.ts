@@ -40,7 +40,7 @@ export const me = query({
     if (!user) return null;
     return {
       email: user.email ?? null,
-      voiceMode: user.voiceMode ?? false,
+      voiceMode: user.voiceMode ?? true, // voice is on until the user turns it off
       location: user.location ?? "",
       telegramLinked: !!user.telegramChatId,
     };

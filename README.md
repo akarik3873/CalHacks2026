@@ -81,7 +81,7 @@ Finds over-the-counter health supplies: picks the cheapest approved items that f
 **Simulated:** only the demo user's profile (`lib/shopping/data.ts`).
 
 ## Voice (Cartesia)
-Voice works everywhere the assistant does. In the app, turn on **Settings → Voice mode**: tap **Mic**, speak, tap **Stop**, and the reply is read aloud as it streams in. On Telegram, just send a voice note: the bot answers in text and with a voice note.
+Voice works everywhere the assistant does. In the app, voice mode is on by default (turn it off in **Settings**): tap the mic, speak, tap the red stop button, and the reply is read aloud as it streams in. On Telegram, just send a voice note: the bot answers in text and with a voice note.
 
 **Cartesia features used**
 | Feature | Where | How |
@@ -105,7 +105,7 @@ Voice works everywhere the assistant does. In the app, turn on **Settings → Vo
 
 **Setup**
 1. Create a key at [play.cartesia.ai](https://play.cartesia.ai) and run `npx convex env set CARTESIA_API_KEY sk_car_...` (optionally `CARTESIA_VOICE_ID`).
-2. Web: open the app over https (or localhost), sign in, and turn on Voice mode. The browser asks for the microphone on the first tap of **Mic**.
+2. Web: open the app over https (or localhost) and sign in; voice mode is on by default. The browser asks for the microphone on the first tap of the mic button.
 3. iOS/Android: voice needs a development build (`npx expo run:ios` / `npx expo run:android`); Expo Go can't record.
 4. Telegram: nothing extra; voice notes work once the bot's webhook is set (see below).
 

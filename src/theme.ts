@@ -4,6 +4,7 @@ export const colors = {
   muted: "#6B7280",
   border: "#D1D5DB",
   primary: "#0F766E",
+  primarySoft: "#E6F2F1",
   bubbleUser: "#0F766E",
   bubbleBot: "#FFFFFF",
   danger: "#B91C1C",

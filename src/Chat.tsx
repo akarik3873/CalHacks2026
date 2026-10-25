@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useMutation, useQuery } from "convex/react";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
 import { colors } from "./theme";
@@ -98,7 +99,12 @@ export function Chat() {
       <View style={styles.inputRow}>
         {me?.voiceMode && (
           <Pressable
-            style={[styles.mic, voice.mic === "recording" && styles.micActive]}
+            style={({ pressed }) => [
+              styles.iconButton,
+              styles.mic,
+              voice.mic === "recording" && styles.micActive,
+              pressed && styles.pressed,
+            ]}
             onPress={voice.mic === "recording" ? voice.stop : voice.start}
             disabled={voice.mic === "asking" || voice.mic === "transcribing"}
             accessibilityRole="button"
@@ -106,22 +112,31 @@ export function Chat() {
             accessibilityState={{ busy: voice.mic === "asking" || voice.mic === "transcribing" }}
           >
             {voice.mic === "asking" || voice.mic === "transcribing" ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.primary} />
+            ) : voice.mic === "recording" ? (
+              <Ionicons name="stop" size={20} color="#fff" />
             ) : (
-              <Text style={styles.micText}>{voice.mic === "recording" ? "Stop" : "Mic"}</Text>
+              <Ionicons name="mic" size={22} color={colors.primary} />
             )}
           </Pressable>
         )}
         <TextInput
           style={styles.input}
-          placeholder="Type a message"
+          placeholder={me?.voiceMode ? "Type or tap the mic" : "Type a message"}
+          placeholderTextColor={colors.muted}
           value={text}
           onChangeText={setText}
           onSubmitEditing={() => submit()}
           returnKeyType="send"
         />
-        <Pressable style={styles.send} onPress={() => submit()}>
-          <Text style={styles.sendText}>Send</Text>
+        <Pressable
+          style={({ pressed }) => [styles.iconButton, styles.send, !text.trim() && styles.sendIdle, pressed && styles.pressed]}
+          onPress={() => submit()}
+          disabled={!text.trim()}
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
+        >
+          <Ionicons name="arrow-up" size={22} color="#fff" />
         </Pressable>
       </View>
       {notice && <Text style={styles.error}>{notice}</Text>}
@@ -251,13 +266,33 @@ const styles = StyleSheet.create({
   botText: { color: colors.text, fontSize: 16, lineHeight: 22 },
   channel: { fontSize: 11, color: colors.muted, marginTop: 4 },
   typing: { color: colors.muted, fontStyle: "italic", marginTop: 4 },
-  inputRow: { flexDirection: "row", gap: 8, padding: 12, paddingBottom: 28, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: colors.border },
-  input: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 16 },
-  send: { backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 16, justifyContent: "center" },
-  sendText: { color: "#fff", fontWeight: "600" },
-  mic: { backgroundColor: colors.muted, borderRadius: 20, paddingHorizontal: 14, justifyContent: "center" },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    paddingBottom: 28,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 16,
+    backgroundColor: colors.bg,
+  },
+  iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  pressed: { opacity: 0.7, transform: [{ scale: 0.95 }] },
+  send: { backgroundColor: colors.primary },
+  sendIdle: { backgroundColor: colors.border },
+  mic: { backgroundColor: colors.primarySoft },
   micActive: { backgroundColor: colors.danger },
-  micText: { color: "#fff", fontWeight: "600" },
   error: { color: colors.danger, paddingHorizontal: 16, paddingBottom: 8 },
   noteRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingRight: 16 },
   noteText: { flex: 1 },

@@ -21,7 +21,7 @@ const TOKEN_REFRESH_MS = 4 * 60_000; // tokens last 5 minutes
 const MIC_STATUS: Record<MicState, string | null> = {
   idle: null,
   asking: "Waiting for microphone permission…",
-  recording: "Listening… tap Stop when you're done.",
+  recording: "Listening… tap the red button when you're done.",
   transcribing: "Transcribing…",
 };
 

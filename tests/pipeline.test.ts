@@ -93,15 +93,17 @@ describe("app chat", () => {
     expect(await a.as.query(api.chat.list)).toHaveLength(2);
   });
 
-  test("settings: voice mode toggles", async () => {
+  test("settings: voice mode is on by default and toggles", async () => {
     const t = setup();
     const { as } = await createAppUser(t);
     expect(await as.query(api.chat.me)).toEqual({
       email: "a@example.com",
-      voiceMode: false,
+      voiceMode: true,
       location: "",
       telegramLinked: false,
     });
+    await as.mutation(api.chat.setVoiceMode, { enabled: false });
+    expect((await as.query(api.chat.me))!.voiceMode).toBe(false);
     await as.mutation(api.chat.setVoiceMode, { enabled: true });
     expect((await as.query(api.chat.me))!.voiceMode).toBe(true);
   });
