@@ -41,7 +41,7 @@ function micError(e: unknown): VoiceError {
 function micBlocked(): VoiceError {
   return Platform.OS === "web"
     ? { text: "Microphone access is blocked. Allow it in your browser's site settings, then tap Mic again." }
-    : { text: "Microphone access is off for Health Assistant.", openSettings: true };
+    : { text: "Microphone access is off for Wellnest.", openSettings: true };
 }
 
 export function useVoice(enabled: boolean, messages: ChatMessage[] | undefined, submit: (text: string) => Promise<void>) {

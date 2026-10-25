@@ -85,7 +85,7 @@ export const respond = internalAction({
         const windowStart = history[0]?._creationTime ?? message._creationTime;
         const inHistory = new Set(history.map((m) => m._id));
         memory = (await ctx.runQuery(internal.pipeline.getMessages, { ids })).filter(
-          (m) => !inHistory.has(m._id) && m._creationTime < windowStart,
+          (m) => !inHistory.has(m._id) && m._creationTime < windowStart && m._creationTime > (user?.chatClearedAt ?? 0),
         );
       } catch (e) {
         console.error("memory step failed", e);
@@ -258,14 +258,16 @@ export const getMessages = internalQuery({
 
 export const recent = internalQuery({
   args: { userId: v.id("users"), limit: v.number() },
-  handler: async (ctx, { userId, limit }) =>
-    (
+  handler: async (ctx, { userId, limit }) => {
+    const clearedAt = (await ctx.db.get(userId))?.chatClearedAt ?? 0;
+    return (
       await ctx.db
         .query("messages")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .withIndex("by_user", (q) => q.eq("userId", userId).gt("_creationTime", clearedAt))
         .order("desc")
         .take(limit)
-    ).reverse(),
+    ).reverse();
+  },
 });
 
 export const setEmbedding = internalMutation({

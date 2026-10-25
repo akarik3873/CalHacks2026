@@ -72,6 +72,9 @@ export default defineSchema({
     location: v.optional(v.string()),
     // Routing state (convex/pipeline.ts): an analysis offer waiting for a yes.
     analysisOfferedAt: v.optional(v.number()),
+    // "Clear chat": messages before this time are hidden and left out of the model's context and memory.
+    // They aren't deleted, so the daily message limit still counts them.
+    chatClearedAt: v.optional(v.number()),
   })
     .index("email", ["email"])
     .index("phone", ["phone"])

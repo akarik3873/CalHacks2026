@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { colors } from "./theme";
 
@@ -34,7 +34,13 @@ export function SignIn() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Health Assistant</Text>
+      <Image
+        source={require("../assets/wellnest-logo.png")}
+        style={styles.logo}
+        resizeMode="contain"
+        accessibilityLabel="Wellnest"
+      />
+      <Text style={styles.tagline}>Your AI health assistant. Talk or type.</Text>
       <Text style={styles.subtitle}>
         {flow === "signIn" ? "Sign in to continue" : "Create an account"}
       </Text>
@@ -73,7 +79,8 @@ export function SignIn() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 24, gap: 12, maxWidth: 420, width: "100%", alignSelf: "center" },
-  title: { fontSize: 28, fontWeight: "700", color: colors.text },
+  logo: { width: 200, height: 151, alignSelf: "center" },
+  tagline: { fontSize: 15, color: colors.muted, textAlign: "center", marginBottom: 12 },
   subtitle: { fontSize: 16, color: colors.muted, marginBottom: 8 },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 16, backgroundColor: "#fff" },
   button: { backgroundColor: colors.primary, borderRadius: 10, padding: 14, alignItems: "center" },

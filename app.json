@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Health Assistant",
+    "name": "Wellnest",
     "slug": "calhacks-health",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,8 +20,8 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "name": "Health Assistant",
-      "shortName": "Health"
+      "name": "Wellnest",
+      "shortName": "Wellnest"
     },
     "plugins": [
       "expo-secure-store",

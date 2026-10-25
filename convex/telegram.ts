@@ -10,7 +10,7 @@ import { enqueueUserMessage, LIMIT_REPLY, overDailyLimit } from "./pipeline";
 
 const LINK_TTL_MS = 15 * 60 * 1000;
 const WELCOME =
-  "Hi! I'm your AI health assistant. Text me any health question, or send a voice note and I'll answer out loud too. I'm not a doctor; in an emergency call 911.";
+  "Hi! I'm Wellnest, your AI health assistant. Text me any health question, or send a voice note and I'll answer out loud too. I'm not a doctor; in an emergency call 911.";
 
 // App user taps "Text me on Telegram" -> gets t.me/<bot>?start=<code>.
 export const createLinkUrl = mutation({

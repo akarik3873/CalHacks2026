@@ -1,4 +1,4 @@
-# CalHacks2026 — AI Health Assistant
+# Wellnest — AI health assistant (CalHacks2026)
 
 Chat in the app (web + iOS + Android, Expo) or text the Telegram bot, by typing or by voice. See `plan2.md`.
 

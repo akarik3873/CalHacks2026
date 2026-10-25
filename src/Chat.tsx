@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -29,10 +31,23 @@ const STARTERS = [
   "I just got my period and the cramps are bad",
 ];
 
+// Yes/no before clearing: a browser dialog on web, a native alert on iOS/Android.
+function confirmClear(): Promise<boolean> {
+  const message = "Clear this chat and start fresh? Wellnest won't use these messages in new answers.";
+  if (Platform.OS === "web") return Promise.resolve(window.confirm(message));
+  return new Promise((resolve) =>
+    Alert.alert("Clear chat?", message, [
+      { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+      { text: "Clear", style: "destructive", onPress: () => resolve(true) },
+    ]),
+  );
+}
+
 export function Chat() {
   const messages = useQuery(api.chat.list);
   const me = useQuery(api.chat.me);
   const send = useMutation(api.chat.send);
+  const clearChat = useMutation(api.chat.clear);
   const [text, setText] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -55,6 +70,13 @@ export function Chat() {
 
   const voice = useVoice(!!me?.voiceMode, messages, submit);
 
+  const clear = async () => {
+    if (!(await confirmClear())) return;
+    voice.stopSpeaking();
+    setNotice(null);
+    await clearChat();
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -62,24 +84,34 @@ export function Chat() {
     >
       <View style={styles.header}>
         <View style={styles.brand}>
-          <View style={styles.logo}>
-            <Ionicons name="pulse" size={20} color="#fff" />
-          </View>
+          <Image source={require("../assets/wellnest-mark.png")} style={styles.logo} accessibilityIgnoresInvertColors />
           <View>
-            <Text style={styles.headerTitle}>Health Assistant</Text>
+            <Text style={styles.headerTitle}>Wellnest</Text>
             <Text style={styles.headerSubtitle}>
               {me?.voiceMode ? "Voice on · talk or type" : "Text mode"} · not a doctor
             </Text>
           </View>
         </View>
-        <Pressable
-          style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
-          onPress={() => setShowSettings((s) => !s)}
-          accessibilityRole="button"
-          accessibilityLabel={showSettings ? "Close settings" : "Settings"}
-        >
-          <Ionicons name={showSettings ? "close" : "settings-outline"} size={22} color={colors.text} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          {!!messages?.length && (
+            <Pressable
+              style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
+              onPress={() => void clear()}
+              accessibilityRole="button"
+              accessibilityLabel="Clear chat"
+            >
+              <Ionicons name="trash-outline" size={21} color={colors.text} />
+            </Pressable>
+          )}
+          <Pressable
+            style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
+            onPress={() => setShowSettings((s) => !s)}
+            accessibilityRole="button"
+            accessibilityLabel={showSettings ? "Close settings" : "Settings"}
+          >
+            <Ionicons name={showSettings ? "close" : "settings-outline"} size={22} color={colors.text} />
+          </Pressable>
+        </View>
       </View>
 
       {showSettings && me && <Settings me={me} onVoiceModeOn={() => voice.prepare(true)} />}
@@ -299,8 +331,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 12,
+    // Room for the status bar / notch on phones; the browser needs none.
+    paddingTop: Platform.OS === "web" ? 10 : 56,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: "#fff",
@@ -308,7 +341,8 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "700", color: colors.text },
   headerSubtitle: { fontSize: 12, color: colors.muted, marginTop: 1 },
   brand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logo: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  logo: { width: 38, height: 38, borderRadius: 10 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
   headerButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   headerLink: { color: colors.primary, fontSize: 16 },
   settings: { padding: 16, gap: 12, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: colors.border },

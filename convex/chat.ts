@@ -22,9 +22,10 @@ export const list = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
+    const clearedAt = (await ctx.db.get(userId))?.chatClearedAt ?? 0;
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId).gt("_creationTime", clearedAt))
       .order("desc")
       .take(100);
     return messages.reverse().map(({ embedding, ...m }) => m);
@@ -44,6 +45,16 @@ export const me = query({
       location: user.location ?? "",
       telegramLinked: !!user.telegramChatId,
     };
+  },
+});
+
+// Start a fresh conversation (see users.chatClearedAt).
+export const clear = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not signed in");
+    await ctx.db.patch(userId, { chatClearedAt: Date.now(), analysisOfferedAt: undefined });
   },
 });
 
