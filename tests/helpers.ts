@@ -52,6 +52,8 @@ export function storeListing(site: string, q: string) {
 
 // What the fake Cartesia TTS returns: an MP3 frame header and a few bytes.
 export const FAKE_MP3 = new Uint8Array([0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4]);
+// A Telegram voice note as downloaded: an Ogg page header and a few bytes.
+export const FAKE_OGG = new Uint8Array([0x4f, 0x67, 0x67, 0x53, 0, 2, 9, 9]);
 
 export function mockApis(opts: {
   core?: CortexReply[];
@@ -66,6 +68,8 @@ export function mockApis(opts: {
   // Store product search results for (site, query); default storeListing. An Error = Jina search down for stores.
   shopSearch?: Error | ((site: string, q: string) => { title: string; url: string }[]);
   cartesiaTtsFail?: boolean; // /tts/bytes answers 500
+  cartesiaStt?: string | Error; // what Cartesia STT hears (default "I have a headache")
+  telegramFileGone?: boolean; // getFile fails (e.g. a file over 20 MB)
 } = {}) {
   const calls: Call[] = [];
   const core = [...(opts.core ?? [{ content: "Rest and drink water." }])];
@@ -107,6 +111,15 @@ export function mockApis(opts: {
       });
     }
     if (url.startsWith("https://r.jina.ai/")) return new Response("Page text about the topic.");
+    if (url.startsWith("https://api.telegram.org/file/")) return new Response(FAKE_OGG);
+    if (url.endsWith("/getFile")) {
+      if (opts.telegramFileGone) return Response.json({ ok: false, description: "Bad Request: file is too big" }, { status: 400 });
+      return Response.json({ ok: true, result: { file_id: body.file_id, file_path: "voice/file_7.oga", file_size: FAKE_OGG.length } });
+    }
+    if (url === "https://api.cartesia.ai/stt") {
+      if (opts.cartesiaStt instanceof Error) return new Response(opts.cartesiaStt.message, { status: 500 });
+      return Response.json({ type: "transcript", text: opts.cartesiaStt ?? "I have a headache", language: "en", duration: 2 });
+    }
     if (url.startsWith("https://api.telegram.org/")) {
       if (opts.telegramRejectHtml && body?.parse_mode === "HTML") {
         return new Response("Bad Request: can't parse entities", { status: 400 });
@@ -178,6 +191,7 @@ export const jevCalls = (calls: Call[]) => calls.filter((c) => c.url.includes("a
 export const shopperModelCalls = (calls: Call[]) =>
   cortexCalls(calls).filter((c) => c.body.messages[0].content.startsWith("You read requests to restock"));
 export const telegramTyping = (calls: Call[]) => calls.filter((c) => c.url.endsWith("/sendChatAction"));
+export const telegramVoices = (calls: Call[]) => calls.filter((c) => c.url.endsWith("/sendVoice"));
 
 export async function drain(t: ReturnType<typeof setup>) {
   await t.finishAllScheduledFunctions(vi.runAllTimers);

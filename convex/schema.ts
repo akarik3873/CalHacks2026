@@ -86,6 +86,8 @@ export default defineSchema({
     urgent: v.optional(v.boolean()),
     // "links": the shopper's store links under a reply. Shown, but never read aloud in voice mode.
     kind: v.optional(v.literal("links")),
+    // A user message that came in as a Telegram voice note (text is the transcript); the reply is also spoken.
+    voice: v.optional(v.boolean()),
   })
     .index("by_user", ["userId"])
     .vectorIndex("by_embedding", {

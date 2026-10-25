@@ -36,8 +36,18 @@ http.route({
     if (msg?.chat?.type === "private") {
       const chatId = String(msg.chat.id);
       const name = [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ") || undefined;
+      // A voice note, or an audio file sent to the bot.
+      const audio = msg.voice ?? msg.audio;
       if (msg.text) {
         await ctx.runMutation(internal.telegram.handleIncoming, { chatId, text: msg.text, name });
+      } else if (typeof audio?.file_id === "string") {
+        await ctx.runMutation(internal.telegram.handleVoice, {
+          chatId,
+          name,
+          fileId: audio.file_id,
+          duration: Number(audio.duration) || 0,
+          mimeType: typeof audio.mime_type === "string" ? audio.mime_type : undefined,
+        });
       } else if (msg.location) {
         await ctx.runMutation(internal.telegram.saveSharedLocation, {
           chatId,

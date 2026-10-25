@@ -3,13 +3,14 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalAction, internalMutation, mutation, MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { finishLinkPrompt, sendLinkPrompt } from "./lib/telegram";
+import { audioFileName, downloadFile, finishLinkPrompt, sendLinkPrompt, sendTelegram, sendTyping } from "./lib/telegram";
+import { transcribe } from "./lib/cartesia";
 import { internal } from "./_generated/api";
-import { enqueueUserMessage, LIMIT_REPLY } from "./pipeline";
+import { enqueueUserMessage, LIMIT_REPLY, overDailyLimit } from "./pipeline";
 
 const LINK_TTL_MS = 15 * 60 * 1000;
 const WELCOME =
-  "Hi! I'm your AI health assistant. Text me any health question. I'm not a doctor; in an emergency call 911.";
+  "Hi! I'm your AI health assistant. Text me any health question, or send a voice note and I'll answer out loud too. I'm not a doctor; in an emergency call 911.";
 
 // App user taps "Text me on Telegram" -> gets t.me/<bot>?start=<code>.
 export const createLinkUrl = mutation({
@@ -66,6 +67,67 @@ export const handleIncoming = internalMutation({
     // Telegram-only users: first message creates the account.
     const userId = existing?._id ?? (await findOrCreateTelegramUser(ctx, chatId, name));
     const messageId = await enqueueUserMessage(ctx, userId, text.slice(0, 4000), "telegram");
+    if (messageId === null) {
+      await ctx.scheduler.runAfter(0, internal.pipeline.deliverTelegram, { userId, text: LIMIT_REPLY });
+    }
+  },
+});
+
+// Voice notes: checked here (daily limit, length) before any audio is downloaded or sent to Cartesia.
+const MAX_VOICE_SECONDS = 180;
+const VOICE_TOO_LONG = "That voice note is over 3 minutes. Please send a shorter one, or type your question.";
+const VOICE_UNREADABLE = "Sorry, I couldn't listen to that voice note. Please try again, or type your question.";
+const VOICE_EMPTY = "I couldn't make out any words in that voice note. Could you try again, or type it?";
+
+export const handleVoice = internalMutation({
+  args: {
+    chatId: v.string(),
+    name: v.optional(v.string()),
+    fileId: v.string(),
+    duration: v.number(),
+    mimeType: v.optional(v.string()),
+  },
+  handler: async (ctx, { chatId, name, fileId, duration, mimeType }) => {
+    const userId = await findOrCreateTelegramUser(ctx, chatId, name);
+    const reply = (text: string) => ctx.scheduler.runAfter(0, internal.pipeline.deliverTelegram, { userId, text });
+    if (await overDailyLimit(ctx, userId)) {
+      await reply(LIMIT_REPLY);
+      return;
+    }
+    if (duration > MAX_VOICE_SECONDS) {
+      await reply(VOICE_TOO_LONG);
+      return;
+    }
+    await ctx.scheduler.runAfter(0, internal.telegram.transcribeVoice, { userId, chatId, fileId, mimeType });
+  },
+});
+
+// Download the voice note, transcribe it with Cartesia (ink-whisper), and run the transcript like a text message.
+export const transcribeVoice = internalAction({
+  args: { userId: v.id("users"), chatId: v.string(), fileId: v.string(), mimeType: v.optional(v.string()) },
+  handler: async (ctx, { userId, chatId, fileId, mimeType }) => {
+    void sendTyping(chatId).catch(() => {});
+    let text: string;
+    try {
+      const { audio, path } = await downloadFile(fileId);
+      text = await transcribe(audio, audioFileName(path, mimeType));
+    } catch (e) {
+      console.error("voice note transcription failed", e);
+      await sendTelegram(chatId, VOICE_UNREADABLE);
+      return;
+    }
+    if (!text) {
+      await sendTelegram(chatId, VOICE_EMPTY);
+      return;
+    }
+    await ctx.runMutation(internal.telegram.enqueueVoiceNote, { userId, text });
+  },
+});
+
+export const enqueueVoiceNote = internalMutation({
+  args: { userId: v.id("users"), text: v.string() },
+  handler: async (ctx, { userId, text }) => {
+    const messageId = await enqueueUserMessage(ctx, userId, text.slice(0, 4000), "telegram", true);
     if (messageId === null) {
       await ctx.scheduler.runAfter(0, internal.pipeline.deliverTelegram, { userId, text: LIMIT_REPLY });
     }

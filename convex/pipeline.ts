@@ -10,7 +10,9 @@ import { analyzeSymptomsTool, runTool, saveLocationTool, toolDefs } from "./lib/
 import { parseInputs } from "./lib/creao";
 import { NO_ROUTE, Route, route } from "./lib/jev";
 import { shopTurn } from "./shop";
-import { sendTelegram, sendTyping } from "./lib/telegram";
+import { sendChatAction, sendTelegram, sendTyping, sendVoice } from "./lib/telegram";
+import { synthesizeMp3 } from "./lib/cartesia";
+import { toSpeech } from "./lib/speech";
 import { channel } from "./schema";
 
 const MAX_TOOL_ROUNDS = 5;
@@ -138,6 +140,7 @@ export const respond = internalAction({
       extra: links,
       channel: message.channel,
       urgent,
+      heard: message.voice ? message.text : undefined,
     });
   },
 });
@@ -271,16 +274,24 @@ export const setEmbedding = internalMutation({
 });
 
 export const saveReply = internalMutation({
-  args: { userId: v.id("users"), text: v.string(), extra: v.optional(v.string()), channel, urgent: v.boolean() },
-  handler: async (ctx, { extra, ...args }) => {
-    if (!extra) return saveAssistantReply(ctx, args);
+  args: {
+    userId: v.id("users"),
+    text: v.string(),
+    extra: v.optional(v.string()),
+    channel,
+    urgent: v.boolean(),
+    heard: v.optional(v.string()), // the transcript, when the user asked by Telegram voice note
+  },
+  handler: async (ctx, { extra, heard, ...args }) => {
     // Two messages in the app; one Telegram message so they can't arrive out of order.
     await saveAssistantReply(ctx, args, false);
-    await saveAssistantReply(ctx, { ...args, text: extra, urgent: false, kind: "links" }, false);
+    if (extra) await saveAssistantReply(ctx, { ...args, text: extra, urgent: false, kind: "links" }, false);
     if (args.channel === "telegram") {
       await ctx.scheduler.runAfter(0, internal.pipeline.deliverTelegram, {
         userId: args.userId,
-        text: `${args.text}\n\n${extra}`,
+        text: extra ? `${args.text}\n\n${extra}` : args.text,
+        // A voice note gets a spoken answer too (the reply only, not the store links).
+        ...(heard !== undefined && { voice: { heard, speak: args.text } }),
       });
     }
   },
@@ -321,12 +332,40 @@ export const embedReply = internalAction({
 });
 
 export const deliverTelegram = internalAction({
-  args: { userId: v.id("users"), text: v.string() },
-  handler: async (ctx, { userId, text }) => {
-    const user = await ctx.runQuery(internal.pipeline.getUser, { userId });
-    if (user?.telegramChatId) await sendTelegram(user.telegramChatId, text);
+  args: { userId: v.id("users"), text: v.string(), voice: v.optional(v.object({ heard: v.string(), speak: v.string() })) },
+  handler: async (ctx, { userId, text, voice }): Promise<void> => {
+    const user: Doc<"users"> | null = await ctx.runQuery(internal.pipeline.getUser, { userId });
+    const chatId = user?.telegramChatId;
+    if (!chatId) return;
+    if (!voice) {
+      await sendTelegram(chatId, text);
+      return;
+    }
+    // Quote what we heard, so a mistranscription is easy to spot, then follow the text with a voice note.
+    await sendTelegram(chatId, `${heardLine(voice.heard)}\n\n${text}`);
+    await sendSpokenReply(chatId, voice.speak);
   },
 });
+
+function heardLine(heard: string) {
+  const quote = heard.length > 300 ? `${heard.slice(0, 300).trimEnd()}…` : heard;
+  return `🎙️ _“${quote.replace(/[_*`]/g, "")}”_`;
+}
+
+// Cartesia speaks the reply and it goes out as a Telegram voice note. The text is already sent, so a failure
+// here only costs the audio.
+async function sendSpokenReply(chatId: string, markdown: string) {
+  const transcript = toSpeech(markdown);
+  if (!transcript) return;
+  try {
+    void sendChatAction(chatId, "record_voice").catch(() => {});
+    const mp3 = await (await synthesizeMp3(transcript)).arrayBuffer();
+    // At 128 kbps, 16,000 bytes is one second.
+    await sendVoice(chatId, new Blob([mp3], { type: "audio/mpeg" }), Math.max(1, Math.round(mp3.byteLength / 16_000)));
+  } catch (e) {
+    console.error("voice reply failed", e);
+  }
+}
 
 export const getUser = internalQuery({
   args: { userId: v.id("users") },
@@ -338,6 +377,15 @@ export const DAILY_LIMIT = 100;
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const LIMIT_REPLY = `You've reached today's limit of ${DAILY_LIMIT} messages. Please try again tomorrow. If this is an emergency, call 911.`;
 
+export async function overDailyLimit(ctx: MutationCtx, userId: Id<"users">) {
+  const recent = await ctx.db
+    .query("messages")
+    .withIndex("by_user", (q) => q.eq("userId", userId).gte("_creationTime", Date.now() - DAY_MS))
+    .filter((q) => q.eq(q.field("role"), "user"))
+    .take(DAILY_LIMIT);
+  return recent.length >= DAILY_LIMIT;
+}
+
 // Insert a user message and kick off the pipeline. Shared by app + Telegram entry points.
 // Returns null (and stores nothing) when the user is over the daily limit.
 export async function enqueueUserMessage(
@@ -345,14 +393,10 @@ export async function enqueueUserMessage(
   userId: Id<"users">,
   text: string,
   ch: "app" | "telegram",
+  voice = false, // a transcribed Telegram voice note
 ) {
-  const recent = await ctx.db
-    .query("messages")
-    .withIndex("by_user", (q) => q.eq("userId", userId).gte("_creationTime", Date.now() - DAY_MS))
-    .filter((q) => q.eq(q.field("role"), "user"))
-    .take(DAILY_LIMIT);
-  if (recent.length >= DAILY_LIMIT) return null;
-  const messageId = await ctx.db.insert("messages", { userId, role: "user", text, channel: ch });
+  if (await overDailyLimit(ctx, userId)) return null;
+  const messageId = await ctx.db.insert("messages", { userId, role: "user", text, channel: ch, ...(voice && { voice }) });
   await ctx.scheduler.runAfter(0, internal.pipeline.respond, { messageId });
   return messageId;
 }

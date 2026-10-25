@@ -55,5 +55,6 @@ _Last updated: 2026-10-25_
 - Merged `fetch-shopping-agent` and `creao-symptom-analyzer` (creao/, `analyze_symptoms` tool, `/creao` webhook).
 - Cartesia voice (short-lived tokens, STT in, TTS out).
 - Streaming TTS (2026-10-25): web plays Cartesia WebSocket PCM chunks as they arrive (Web Audio, gapless, Stop button, next reply generated while the current one plays); iOS/Android play `/tts`, an MP3 Convex streams from Cartesia. Replies are cleaned for speech (`convex/lib/speech.ts`); store links are never read aloud. Needs a check on a real phone.
+- Telegram voice notes (2026-10-25): voice notes (and audio files) are downloaded, transcribed by Cartesia STT and run through the pipeline; the reply comes back as text (quoting what was heard) plus a Sonic voice note. Notes over 3 minutes or over the daily limit are refused before any download. Needs a check with the real bot.
 - Mic button fixed (2026-10-25): shows "Waiting for microphone permission…", "Listening…" and "Transcribing…"; blocked, missing or busy mics get a clear message (Open Settings on native); double taps ignored; recordings stop at 2 minutes or when voice mode is turned off.
 - Daily cleanup of expired link codes; sign-up error messages.

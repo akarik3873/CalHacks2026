@@ -24,9 +24,59 @@ export async function sendTelegram(chatId: string, text: string) {
   }
 }
 
-export async function sendTyping(chatId: string) {
-  await call("sendChatAction", { chat_id: chatId, action: "typing" });
+export async function sendChatAction(chatId: string, action: "typing" | "record_voice" | "upload_voice") {
+  await call("sendChatAction", { chat_id: chatId, action });
 }
+
+export const sendTyping = (chatId: string) => sendChatAction(chatId, "typing");
+
+// Upload audio as a voice message (Telegram plays MP3, M4A and OGG/Opus as voice notes).
+export async function sendVoice(chatId: string, audio: Blob, durationSeconds: number) {
+  void sendChatAction(chatId, "upload_voice").catch(() => {});
+  const form = new FormData();
+  form.append("chat_id", chatId);
+  form.append("duration", String(durationSeconds));
+  form.append("voice", audio, "reply.mp3");
+  const res = await fetch(`https://api.telegram.org/bot${env("TELEGRAM_BOT_TOKEN")}/sendVoice`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Telegram sendVoice ${res.status}: ${await res.text()}`);
+}
+
+// Bots can download files up to 20 MB: getFile, then fetch its file_path.
+export async function downloadFile(fileId: string): Promise<{ audio: Blob; path: string }> {
+  const res = await call("getFile", { file_id: fileId });
+  const body = await res.json().catch(() => null);
+  const path: string | undefined = body?.result?.file_path;
+  if (!res.ok || !path) throw new Error(`Telegram getFile ${res.status}: ${body?.description ?? "no file_path"}`);
+  const file = await fetch(`https://api.telegram.org/file/bot${env("TELEGRAM_BOT_TOKEN")}/${path}`);
+  if (!file.ok) throw new Error(`Telegram file download ${file.status}`);
+  return { audio: await file.blob(), path };
+}
+
+// A file name whose extension tells Cartesia STT the container. Voice notes are OGG/Opus (".oga").
+export function audioFileName(path: string, mimeType?: string) {
+  const ext = path.match(/\.([a-z0-9]{2,4})$/i)?.[1]?.toLowerCase();
+  if (ext && STT_EXTENSIONS.has(ext)) return `audio.${ext}`;
+  const fromMime = mimeType && MIME_EXTENSIONS[mimeType.toLowerCase().split(";")[0]];
+  return `audio.${fromMime ?? "ogg"}`;
+}
+
+const STT_EXTENSIONS = new Set(["flac", "m4a", "mp3", "mp4", "mpeg", "mpga", "oga", "ogg", "wav", "webm"]);
+const MIME_EXTENSIONS: Record<string, string> = {
+  "audio/ogg": "ogg",
+  "audio/opus": "ogg",
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/m4a": "m4a",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/webm": "webm",
+  "audio/flac": "flac",
+};
 
 // Split on line boundaries so Markdown formatting isn't cut mid-span.
 export function chunkText(text: string, max = MAX_CHUNK): string[] {

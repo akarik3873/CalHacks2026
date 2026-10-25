@@ -86,7 +86,9 @@ export function Chat() {
               ) : (
                 <Markdown text={item.text} style={styles.botText} />
               )}
-              {item.channel === "telegram" && <Text style={styles.channel}>via Telegram</Text>}
+              {item.channel === "telegram" && (
+                <Text style={styles.channel}>{item.voice ? "Voice note via Telegram" : "via Telegram"}</Text>
+              )}
             </View>
           )}
           ListFooterComponent={waiting ? <Text style={styles.typing}>Thinking…</Text> : undefined}
