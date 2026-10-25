@@ -1,0 +1,78 @@
+name: Symptom & Biosensor Health Analyzer
+description: Analyzes symptom descriptions plus phone/biosensor health metrics and menstrual-cycle history to name the one to three most likely health conditions or chronic ailments.
+version: 1.1.0
+
+connectors: []
+
+form:
+  fields:
+    - id: symptoms
+      name: Symptoms
+      type: textarea
+      required: true
+      description: Describe what you are feeling - each symptom, when it started, how severe, what makes it better or worse, and whether it follows a pattern.
+      example: Fatigue and breathlessness walking upstairs for 3 weeks, occasional night sweats, no fever.
+    - id: symptom_duration
+      name: Duration & course
+      type: string
+      required: false
+      description: How long symptoms have been present, and whether they are worsening, stable or improving.
+      example: 3 weeks, slowly worsening
+    - id: age
+      name: Age
+      type: integer
+      required: false
+      description: Age in years, used to weight conditions by typical age of onset.
+    - id: sex
+      name: Sex
+      type: select
+      required: false
+      description: Used only where a condition is sex- or cycle-linked.
+      options:
+        - label: Female
+          value: female
+        - label: Male
+          value: male
+        - label: Other
+          value: other
+        - label: Prefer not to say
+          value: unspecified
+    - id: chronic_conditions
+      name: Existing chronic conditions & medications
+      type: textarea
+      required: false
+      description: Any long-term diagnosed conditions (asthma, PCOS, endometriosis, migraine, IBS, thyroid, diabetes) and regular medications, so flares are read in context.
+      example: Asthma since childhood; occasional migraine; no regular medication.
+    - id: biosensor_data
+      name: Biosensor / health app data
+      type: textarea
+      required: false
+      description: Paste metrics from your phone health app - resting heart rate, HRV, breathing rate, SpO2, sleep, step counts over recent days and months, flights climbed, weight, height, workouts, blood pressure.
+      example: Resting HR 78 (baseline 62), respiratory rate 18, steps ~2800/day vs ~9000/day two months ago, flights climbed 2/day vs 12/day, weight 74kg (down 3kg in 2 months), height 175cm.
+    - id: cycle_data
+      name: Menstrual cycle history
+      type: textarea
+      required: false
+      description: Recent period start dates or your usual cycle length, whether cycles are regular, current cycle day, flow and clots, spotting, and cycle-linked symptoms.
+      example: Cycles usually 29 days and regular. Last periods started Mar 2, Mar 31, Apr 30. Current cycle day 33, no period yet. Mild cramping, breast tenderness, sleep worse.
+    - id: last_period_start
+      name: Last period start date
+      type: string
+      required: false
+      description: Date your most recent period began, used to work out how early or late the current cycle is running.
+      example: 2025-04-30
+    - id: biosensor_file
+      name: Health app export or screenshot
+      type: file
+      required: false
+      description: Optional screenshot, CSV, JSON or PDF export of your health data. Anything illegible will be reported as unread, not guessed.
+
+memory:
+  persist_fields: [symptoms, primary_condition, conditions_count, urgency_level, biosensor_data_used, cycle_data_used, cycle_deviation, age, sex]
+  aggregations:
+    - field: conditions_count
+      ops: [avg, count]
+      group_by: [primary_condition]
+    - field: urgency_level
+      ops: [count]
+      group_by: [primary_condition]
