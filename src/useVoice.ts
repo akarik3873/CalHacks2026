@@ -49,7 +49,7 @@ export function useVoice(enabled: boolean, messages: ChatMessage[] | undefined, 
   const authToken = useAuthToken();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [mic, setMicState] = useState<MicState>("idle");
-  const [speaking, setSpeaking] = useState(false);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [error, setError] = useState<VoiceError | null>(null);
   const tokenRef = useRef<{ value: Promise<CartesiaToken>; at: number } | null>(null);
   const authRef = useRef(authToken);
@@ -80,7 +80,7 @@ export function useVoice(enabled: boolean, messages: ChatMessage[] | undefined, 
       createSpeaker({
         cartesiaToken: token,
         authToken: () => authRef.current,
-        onSpeakingChange: setSpeaking,
+        onSpeaking: setSpeakingId,
         onError: (e) => {
           console.error("speaking a reply failed", e);
           setError({ text: e.name === "AudioBlocked" ? e.message : "Couldn't read the reply aloud. It's still here as text." });
@@ -203,8 +203,9 @@ export function useVoice(enabled: boolean, messages: ChatMessage[] | undefined, 
 
   return {
     mic,
-    speaking,
-    status: MIC_STATUS[mic] ?? (speaking ? "Speaking…" : null),
+    speaking: speakingId !== null,
+    speakingId,
+    status: MIC_STATUS[mic],
     error,
     prepare,
     start: () => void start(),

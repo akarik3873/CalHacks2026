@@ -19,6 +19,15 @@ import { api } from "../convex/_generated/api";
 import { colors } from "./theme";
 import { useVoice } from "./useVoice";
 import { Markdown } from "./Markdown";
+import { PulseRing, ThinkingDots } from "./Motion";
+
+// One tap sends these from the empty chat, so first-time users (and judges) can try it right away.
+const STARTERS = [
+  "I have a mild headache, what should I do?",
+  "My allergies are acting up today",
+  "How much water should I drink a day?",
+  "I just got my period and the cramps are bad",
+];
 
 export function Chat() {
   const messages = useQuery(api.chat.list);
@@ -52,9 +61,24 @@ export function Chat() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Health Assistant</Text>
-        <Pressable onPress={() => setShowSettings((s) => !s)}>
-          <Text style={styles.headerLink}>{showSettings ? "Done" : "Settings"}</Text>
+        <View style={styles.brand}>
+          <View style={styles.logo}>
+            <Ionicons name="pulse" size={20} color="#fff" />
+          </View>
+          <View>
+            <Text style={styles.headerTitle}>Health Assistant</Text>
+            <Text style={styles.headerSubtitle}>
+              {me?.voiceMode ? "Voice on · talk or type" : "Text mode"} · not a doctor
+            </Text>
+          </View>
+        </View>
+        <Pressable
+          style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
+          onPress={() => setShowSettings((s) => !s)}
+          accessibilityRole="button"
+          accessibilityLabel={showSettings ? "Close settings" : "Settings"}
+        >
+          <Ionicons name={showSettings ? "close" : "settings-outline"} size={22} color={colors.text} />
         </Pressable>
       </View>
 
@@ -70,9 +94,28 @@ export function Chat() {
           contentContainerStyle={styles.list}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
           ListEmptyComponent={
-            <Text style={styles.empty}>
-              Ask me anything about your health. I'm not a doctor; in an emergency call 911.
-            </Text>
+            <View style={styles.welcome}>
+              <View style={styles.welcomeIcon}>
+                <Ionicons name={me?.voiceMode ? "mic" : "chatbubble-ellipses"} size={30} color={colors.primary} />
+              </View>
+              <Text style={styles.welcomeTitle}>How are you feeling?</Text>
+              <Text style={styles.empty}>
+                {me?.voiceMode ? "Tap the mic and just talk, or type below." : "Type a question below."} I'm not a
+                doctor; in an emergency call 911.
+              </Text>
+              <View style={styles.chips}>
+                {STARTERS.map((q) => (
+                  <Pressable
+                    key={q}
+                    style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
+                    onPress={() => void submit(q)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.chipText}>{q}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           }
           renderItem={({ item }) => (
             <View
@@ -90,35 +133,55 @@ export function Chat() {
               {item.channel === "telegram" && (
                 <Text style={styles.channel}>{item.voice ? "Voice note via Telegram" : "via Telegram"}</Text>
               )}
+              {item._id === voice.speakingId && (
+                <Pressable
+                  style={styles.speaking}
+                  onPress={voice.stopSpeaking}
+                  accessibilityRole="button"
+                  accessibilityLabel="Speaking. Tap to stop."
+                >
+                  <Ionicons name="volume-high" size={14} color={colors.primary} />
+                  <Text style={styles.speakingText}>Speaking · tap to stop</Text>
+                </Pressable>
+              )}
             </View>
           )}
-          ListFooterComponent={waiting ? <Text style={styles.typing}>Thinking…</Text> : undefined}
+          ListFooterComponent={
+            waiting ? (
+              <View style={[styles.bubble, styles.botBubble, styles.thinking]}>
+                <ThinkingDots />
+              </View>
+            ) : undefined
+          }
         />
       )}
 
       <View style={styles.inputRow}>
         {me?.voiceMode && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.iconButton,
-              styles.mic,
-              voice.mic === "recording" && styles.micActive,
-              pressed && styles.pressed,
-            ]}
-            onPress={voice.mic === "recording" ? voice.stop : voice.start}
-            disabled={voice.mic === "asking" || voice.mic === "transcribing"}
-            accessibilityRole="button"
-            accessibilityLabel={voice.mic === "recording" ? "Stop recording and send" : "Record a voice message"}
-            accessibilityState={{ busy: voice.mic === "asking" || voice.mic === "transcribing" }}
-          >
-            {voice.mic === "asking" || voice.mic === "transcribing" ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : voice.mic === "recording" ? (
-              <Ionicons name="stop" size={20} color="#fff" />
-            ) : (
-              <Ionicons name="mic" size={22} color={colors.primary} />
-            )}
-          </Pressable>
+          <View>
+            {voice.mic === "recording" && <PulseRing color={colors.danger} style={styles.ring} />}
+            <Pressable
+              style={({ pressed }) => [
+                styles.iconButton,
+                styles.mic,
+                voice.mic === "recording" && styles.micActive,
+                pressed && styles.pressed,
+              ]}
+              onPress={voice.mic === "recording" ? voice.stop : voice.start}
+              disabled={voice.mic === "asking" || voice.mic === "transcribing"}
+              accessibilityRole="button"
+              accessibilityLabel={voice.mic === "recording" ? "Stop recording and send" : "Record a voice message"}
+              accessibilityState={{ busy: voice.mic === "asking" || voice.mic === "transcribing" }}
+            >
+              {voice.mic === "asking" || voice.mic === "transcribing" ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : voice.mic === "recording" ? (
+                <Ionicons name="stop" size={20} color="#fff" />
+              ) : (
+                <Ionicons name="mic" size={22} color={colors.primary} />
+              )}
+            </Pressable>
+          </View>
         )}
         <TextInput
           style={styles.input}
@@ -145,11 +208,6 @@ export function Chat() {
           <Text style={[styles.voiceStatus, styles.noteText]} accessibilityLiveRegion="polite">
             {voice.status}
           </Text>
-          {voice.speaking && voice.mic === "idle" && (
-            <Pressable onPress={voice.stopSpeaking} accessibilityRole="button" accessibilityLabel="Stop speaking">
-              <Text style={styles.errorAction}>Stop</Text>
-            </Pressable>
-          )}
         </View>
       )}
       {voice.error && (
@@ -248,6 +306,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   headerTitle: { fontSize: 18, fontWeight: "700", color: colors.text },
+  headerSubtitle: { fontSize: 12, color: colors.muted, marginTop: 1 },
+  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logo: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  headerButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   headerLink: { color: colors.primary, fontSize: 16 },
   settings: { padding: 16, gap: 12, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: colors.border },
   settingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
@@ -257,15 +319,24 @@ const styles = StyleSheet.create({
   settingButtonText: { color: colors.primary, fontWeight: "600" },
   muted: { color: colors.muted },
   list: { padding: 16, gap: 8, maxWidth: 760, width: "100%", alignSelf: "center" },
-  empty: { color: colors.muted, textAlign: "center", marginTop: 40 },
+  empty: { color: colors.muted, textAlign: "center", lineHeight: 20, maxWidth: 340 },
+  welcome: { alignItems: "center", marginTop: 32, gap: 10, paddingHorizontal: 8 },
+  welcomeIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  welcomeTitle: { fontSize: 20, fontWeight: "700", color: colors.text },
+  chips: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: 8, maxWidth: 560 },
+  chip: { borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9 },
+  chipText: { color: colors.text, fontSize: 14 },
+  speaking: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
+  speakingText: { fontSize: 12, color: colors.primary, fontWeight: "600" },
+  thinking: { paddingVertical: 10, marginTop: 8 },
+  ring: { borderRadius: 22 },
   bubble: { padding: 12, borderRadius: 14, maxWidth: "85%" },
-  userBubble: { backgroundColor: colors.bubbleUser, alignSelf: "flex-end" },
-  botBubble: { backgroundColor: colors.bubbleBot, alignSelf: "flex-start", borderWidth: 1, borderColor: colors.border },
+  userBubble: { backgroundColor: colors.bubbleUser, alignSelf: "flex-end", borderBottomRightRadius: 4 },
+  botBubble: { backgroundColor: colors.bubbleBot, alignSelf: "flex-start", borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
   urgentBubble: { backgroundColor: colors.urgentBg, borderColor: colors.danger },
   userText: { color: "#fff", fontSize: 16 },
   botText: { color: colors.text, fontSize: 16, lineHeight: 22 },
   channel: { fontSize: 11, color: colors.muted, marginTop: 4 },
-  typing: { color: colors.muted, fontStyle: "italic", marginTop: 4 },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",

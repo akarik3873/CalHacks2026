@@ -182,11 +182,12 @@ export function createSpeaker(deps: SpeakerDeps): Speaker {
   const drain = async () => {
     if (running) return;
     running = true;
-    deps.onSpeakingChange(true);
     try {
       while (queue.length) {
+        const next = queue.shift()!;
+        deps.onSpeaking(next.id);
         try {
-          await generate(queue.shift()!);
+          await generate(next);
         } catch (e) {
           deps.onError(e as Error);
         }
@@ -194,7 +195,7 @@ export function createSpeaker(deps: SpeakerDeps): Speaker {
       await playedOut();
     } finally {
       running = false;
-      deps.onSpeakingChange(false);
+      deps.onSpeaking(null);
     }
   };
 

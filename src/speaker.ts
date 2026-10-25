@@ -8,7 +8,7 @@ export type Utterance = { id: string; text: string };
 export type SpeakerDeps = {
   cartesiaToken: () => Promise<CartesiaToken>; // web: opens the Cartesia WebSocket
   authToken: () => string | null; // native: the Convex auth token for /tts
-  onSpeakingChange: (speaking: boolean) => void;
+  onSpeaking: (messageId: string | null) => void; // the reply being spoken, or null when quiet
   onError: (error: Error) => void;
 };
 
@@ -64,18 +64,19 @@ export function createSpeaker(deps: SpeakerDeps): Speaker {
   const drain = async () => {
     if (running) return;
     running = true;
-    deps.onSpeakingChange(true);
     try {
       while (queue.length) {
+        const next = queue.shift()!;
+        deps.onSpeaking(next.id);
         try {
-          await say(queue.shift()!);
+          await say(next);
         } catch (e) {
           deps.onError(e as Error);
         }
       }
     } finally {
       running = false;
-      deps.onSpeakingChange(false);
+      deps.onSpeaking(null);
     }
   };
 
