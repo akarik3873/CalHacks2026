@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
+import { registerStaticRoutes } from "@convex-dev/static-hosting";
 import { httpAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { auth } from "./auth";
 
 const http = httpRouter();
@@ -67,6 +68,9 @@ http.route({
     return new Response("ok");
   }),
 });
+
+// The Expo web app (uploaded with `npm run deploy:web`). Registered last: exact routes above win over this catch-all.
+registerStaticRoutes(http, components.staticHosting);
 
 function safeEqual(a: string, b: string) {
   if (a.length !== b.length) return false;

@@ -42,8 +42,12 @@ export type RunStatus = "pending" | "running" | "completed" | "failed" | "cancel
 export type CreaoRun = {
   id: string;
   status: RunStatus;
-  result?: { text?: string; chatText?: string } | null;
-  errorCode?: string;
+  result?: {
+    text?: string;
+    chatText?: string;
+    artifacts?: { url?: string; type?: string; title?: string }[];
+  } | null;
+  errorCode?: string | null;
 };
 
 function headers() {
@@ -66,9 +70,28 @@ export async function getRun(runId: string): Promise<CreaoRun> {
   return res.json();
 }
 
-// The agent's report text. The final answer is in result.text; chatText is only set when it differs.
-export function reportText(run: CreaoRun): string | undefined {
-  return run.result?.text?.trim() || run.result?.chatText?.trim() || undefined;
+// The agent's report. Best: the Markdown report file it saves (the full SKILL.md template). Then chatText, its chat
+// summary. result.text is usually just the session metrics as JSON, so it's only used when it isn't JSON.
+export async function fetchReport(run: CreaoRun): Promise<string | undefined> {
+  const file = run.result?.artifacts?.find((a) => a.type === "text/markdown" || a.title?.endsWith(".md"));
+  // Only ever send our key to CREAO itself; the download redirects to a signed URL.
+  if (file?.url && new URL(file.url).hostname === "agent.creao.ai") {
+    try {
+      const res = await fetch(file.url, { headers: { Authorization: `Bearer ${env("CREAO_API_KEY")}` } });
+      const md = res.ok ? (await res.text()).trim() : "";
+      if (md) return md;
+      console.warn(`CREAO report download ${res.status}`);
+    } catch (e) {
+      console.warn("CREAO report download failed", e);
+    }
+  }
+  const chat = run.result?.chatText
+    ?.replace(/^I'll start by [^.]*\.\s*/, "") // the agent narrating its first step
+    .replace(/^.*report is saved to `[^`]*`\.?\s*$/m, "")
+    .trim();
+  if (chat) return chat;
+  const text = run.result?.text?.trim();
+  return text && !text.startsWith("{") ? text : undefined;
 }
 
 // Where CREAO should POST the finished result. CREAO rejects localhost and private addresses, so a local

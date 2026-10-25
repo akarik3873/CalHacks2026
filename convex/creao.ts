@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { getRun, reportText, startRun, webhookUrl } from "./lib/creao";
+import { fetchReport, getRun, startRun, webhookUrl } from "./lib/creao";
 import { saveAssistantReply } from "./pipeline";
 import { channel, creaoInputs, creaoRunStatus } from "./schema";
 
@@ -75,8 +75,8 @@ export const poll = internalAction({
         await ctx.runMutation(internal.creao.applyResult, {
           id,
           status: run.status,
-          report: reportText(run),
-          errorCode: run.errorCode,
+          report: run.status === "completed" ? await fetchReport(run) : undefined,
+          errorCode: run.errorCode ?? undefined,
         });
         return;
       }

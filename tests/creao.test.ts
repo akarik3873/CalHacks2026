@@ -7,6 +7,7 @@ import {
   createAppUser,
   creaoPolls,
   creaoStarts,
+  CREAO_REPORT_URL,
   drain,
   messagesOf,
   mockApis,
@@ -29,6 +30,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
+
+// The user asked for the analysis, so Jev clears it and the tool is offered.
+const AGREED = { wants_analysis: 0.9, consent: 0.95 };
 
 const analyzeCall = (args: object) => ({
   content: null,
@@ -69,6 +73,7 @@ describe("analyze_symptoms tool", () => {
   test("starts a CREAO run with the user's details; the report arrives later as its own message", async () => {
     const t = setup();
     const { calls } = mockApis({
+      jev: AGREED,
       core: [
         analyzeCall({ symptoms: "Tired and out of breath on stairs", symptom_duration: "5 weeks, worse", age: 34, sex: "female", bogus: "x" }),
         { content: "I've started a detailed analysis. The report will arrive in a few minutes." },
@@ -107,7 +112,10 @@ describe("analyze_symptoms tool", () => {
 
   test("missing symptoms -> tool error back to the model, nothing sent to CREAO", async () => {
     const t = setup();
-    const { calls } = mockApis({ core: [analyzeCall({ age: 30 }), { content: "Can you describe your symptoms?" }] });
+    const { calls } = mockApis({
+ jev: AGREED,
+ core: [
+        analyzeCall({ age: 30 }), { content: "Can you describe your symptoms?" }] });
     const { as } = await createAppUser(t);
     await as.mutation(api.chat.send, { text: "analyze my symptoms" });
     await drain(t);
@@ -118,7 +126,10 @@ describe("analyze_symptoms tool", () => {
   test("CREAO not set up -> tool error, nothing sent", async () => {
     vi.stubEnv("CREAO_API_KEY", "");
     const t = setup();
-    const { calls } = mockApis({ core: [analyzeCall({ symptoms: "headache" }), { content: "ok" }] });
+    const { calls } = mockApis({
+ jev: AGREED,
+ core: [
+        analyzeCall({ symptoms: "headache" }), { content: "ok" }] });
     const { userId, as } = await createAppUser(t);
     await as.mutation(api.chat.send, { text: "what's causing my headache" });
     await drain(t);
@@ -151,7 +162,10 @@ describe("analyze_symptoms tool", () => {
 
   test("CREAO rejects the run -> the user is told, nothing polled", async () => {
     const t = setup();
-    const { calls } = mockApis({ core: [analyzeCall({ symptoms: "rash" }), { content: "Started it." }], creaoStartFail: true });
+    const { calls } = mockApis({
+ jev: AGREED,
+ core: [
+        analyzeCall({ symptoms: "rash" }), { content: "Started it." }], creaoStartFail: true });
     const { userId, as } = await createAppUser(t);
     await as.mutation(api.chat.send, { text: "what is this rash" });
     await drain(t);
@@ -164,12 +178,65 @@ describe("analyze_symptoms tool", () => {
   test("local deployment: no webhook (CREAO rejects localhost), polling still delivers", async () => {
     vi.stubEnv("CONVEX_SITE_URL", "http://127.0.0.1:3211");
     const t = setup();
-    const { calls } = mockApis({ core: [analyzeCall({ symptoms: "cough" }), { content: "Started." }] });
+    const { calls } = mockApis({
+ jev: AGREED,
+ core: [
+        analyzeCall({ symptoms: "cough" }), { content: "Started." }] });
     const { userId, as } = await createAppUser(t);
     await as.mutation(api.chat.send, { text: "why do I keep coughing" });
     await drain(t);
     expect("webhookUrl" in creaoStarts(calls)[0].body).toBe(false);
     expect((await messagesOf(t, userId)).at(-1)!.text).toContain("Your detailed symptom analysis is ready");
+  });
+});
+
+describe("CREAO report", () => {
+  // What a finished run really looks like: metrics JSON in text, chat summary, report file, errorCode null.
+  const realRun = (artifacts: boolean) => ({
+    status: "completed",
+    errorCode: null,
+    result: {
+      text: '{"primary_condition":"Iron-deficiency anaemia","conditions_count":3,"urgency_level":"soon"}',
+      chatText: "I'll start by reading the agent's manifest and SKILL.md.Here is the analysis.\n\n**Iron-deficiency anaemia** is more likely.\n\nThe full report is saved to `files/health-analysis-report.md`.",
+      artifacts: artifacts ? [{ url: CREAO_REPORT_URL, type: "text/markdown", title: "health-analysis-report.md" }] : [],
+    },
+  });
+
+  test("delivers the Markdown report file, not the metrics JSON", async () => {
+    const t = setup();
+    mockApis({ creaoRuns: [realRun(true)] });
+    const { userId } = await createAppUser(t);
+    await insertRun(t, userId);
+    await t.action(internal.creao.poll, { id: (await runsOf(t))[0]._id });
+    const last = (await messagesOf(t, userId)).at(-1)!.text;
+    expect(last).toContain("# Symptom & Biosensor Health Analysis");
+    expect(last).not.toContain("primary_condition");
+    expect((await runsOf(t))[0]).toMatchObject({ status: "completed", delivered: true });
+  });
+
+  test("no report file -> the chat summary, without the agent's narration", async () => {
+    const t = setup();
+    mockApis({ creaoRuns: [realRun(false)] });
+    const { userId } = await createAppUser(t);
+    await insertRun(t, userId);
+    await t.action(internal.creao.poll, { id: (await runsOf(t))[0]._id });
+    const last = (await messagesOf(t, userId)).at(-1)!.text;
+    expect(last).toContain("Here is the analysis.");
+    expect(last).toContain("**Iron-deficiency anaemia** is more likely.");
+    expect(last).not.toContain("I'll start by");
+    expect(last).not.toContain("report is saved to");
+    expect(last).not.toContain("primary_condition");
+  });
+
+  test("never sends the key to a report URL outside CREAO", async () => {
+    const t = setup();
+    const run = realRun(true);
+    run.result.artifacts[0].url = "https://evil.example.com/report.md";
+    const { calls } = mockApis({ creaoRuns: [run] });
+    const { userId } = await createAppUser(t);
+    await insertRun(t, userId);
+    await t.action(internal.creao.poll, { id: (await runsOf(t))[0]._id });
+    expect(calls.some((c) => c.url.includes("evil.example.com"))).toBe(false);
   });
 });
 

@@ -30,6 +30,31 @@ export const creaoRunStatus = v.union(
   v.literal("cancelled"),
 );
 
+// Health Supply Shopper (convex/shop.ts).
+export const urgency = v.union(v.literal("asap"), v.literal("today"), v.literal("standard"));
+const cartLine = v.object({
+  itemKey: v.string(),
+  itemLabel: v.string(),
+  sku: v.string(),
+  productName: v.string(),
+  qty: v.number(),
+  unitPriceCents: v.number(),
+  merchantId: v.string(),
+});
+// Legacy: a cart priced by the removed headless browser service.
+export const realStore = v.object({
+  store: v.string(),
+  storeName: v.string(),
+  canFillCart: v.boolean(),
+  products: v.array(v.object({ sku: v.string(), id: v.string(), url: v.string(), title: v.string() })),
+});
+const cartMerchant = v.object({
+  merchantId: v.string(),
+  name: v.string(),
+  deliveryFeeCents: v.number(),
+  deliveryMinutes: v.number(),
+});
+
 export default defineSchema({
   ...authTables,
   // Override Convex Auth's users table to add our own fields.
@@ -45,6 +70,8 @@ export default defineSchema({
     voiceMode: v.optional(v.boolean()),
     // Free text ("Berkeley, CA 94704") or "lat,lon" from a shared Telegram location.
     location: v.optional(v.string()),
+    // Routing state (convex/pipeline.ts): an analysis offer waiting for a yes.
+    analysisOfferedAt: v.optional(v.number()),
   })
     .index("email", ["email"])
     .index("phone", ["phone"])
@@ -90,4 +117,47 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_run", ["runId"]),
+
+  // Legacy, no longer written: orders from the removed approve-then-fill-a-cart flow. Kept because the dev deployment still has rows.
+  carts: defineTable({
+    userId: v.id("users"),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("cancelled")),
+    expiresAt: v.number(),
+    kitKey: v.string(),
+    kitLabel: v.string(),
+    urgency,
+    budgetCapCents: v.number(),
+    lines: v.array(cartLine),
+    merchants: v.array(cartMerchant),
+    dropped: v.array(v.string()),
+    unavailable: v.array(v.string()),
+    notes: v.array(v.string()),
+    rxRefused: v.array(v.string()),
+    singleStoreTotals: v.array(v.object({ name: v.string(), totalCents: v.number() })),
+    real: v.optional(realStore), // always set on new carts; missing only on old simulated-store carts
+  }).index("by_user_status", ["userId", "status"]),
+
+  // Legacy, no longer written: the removed simulated card network. Kept because the dev deployment still has rows.
+  cardAuths: defineTable({
+    authId: v.string(),
+    amountCents: v.number(),
+    merchantId: v.string(),
+    reference: v.string(),
+    status: v.union(v.literal("authorized"), v.literal("captured"), v.literal("voided")),
+  }).index("by_auth", ["authId"]),
+
+  // Legacy, no longer written: orders from the removed simulated merchants. Kept because the dev deployment still has rows.
+  shopOrders: defineTable({
+    userId: v.id("users"),
+    cartId: v.id("carts"),
+    merchantId: v.string(),
+    merchant: v.string(),
+    orderId: v.string(),
+    status: v.union(v.literal("paid"), v.literal("failed")),
+    authId: v.optional(v.string()),
+    amountCents: v.optional(v.number()),
+    etaMinutes: v.optional(v.number()),
+    items: v.optional(v.array(v.string())),
+    reason: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
 });
