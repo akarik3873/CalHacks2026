@@ -1,0 +1,35 @@
+{
+  "_note": "Product names are real OTC products; every price and stock level in this project is simulated.",
+  "products": [
+    { "sku": "stelo-2pk", "name": "Dexcom Stelo Glucose Biosensor, 2 sensors", "brand": "Dexcom Stelo", "category": "diabetes", "list_price": 99.00, "rx": false, "keywords": ["stelo"] },
+    { "sku": "dexcom-g7-sensor", "name": "Dexcom G7 Sensor", "brand": "Dexcom G7", "category": "diabetes", "list_price": 89.00, "rx": true, "slot": "cgm_sensor", "keywords": ["g7"] },
+    { "sku": "libre3-sensor", "name": "FreeStyle Libre 3 Sensor", "brand": "FreeStyle Libre 3", "category": "diabetes", "list_price": 79.00, "rx": true, "slot": "cgm_sensor", "keywords": ["libre"] },
+    { "sku": "cgm-overpatch-20", "name": "CGM Sensor Overpatches, 20 ct", "brand": "Skin Grip", "category": "diabetes", "list_price": 14.99, "rx": false },
+    { "sku": "bd-alcohol-swabs-100", "name": "BD Alcohol Swabs, 100 ct", "brand": "BD", "active_ingredient": "isopropyl alcohol", "strength": "70%", "category": "diabetes", "list_price": 4.49, "rx": false },
+    { "sku": "store-alcohol-pads-100", "name": "Alcohol Prep Pads, 100 ct (store brand)", "brand": "Store brand", "active_ingredient": "isopropyl alcohol", "strength": "70%", "category": "diabetes", "list_price": 2.99, "rx": false },
+    { "sku": "fastclix-102", "name": "Accu-Chek FastClix Lancets, 102 ct", "brand": "Accu-Chek FastClix", "category": "diabetes", "list_price": 21.99, "rx": false },
+    { "sku": "dex4-gel-3", "name": "Dex4 Glucose Gel, 3 pack", "brand": "Dex4", "active_ingredient": "dextrose", "category": "diabetes", "list_price": 8.99, "rx": false },
+
+    { "sku": "claritin-10mg-30", "name": "Claritin 24hr Non-Drowsy, loratadine 10 mg, 30 tablets", "brand": "Claritin", "active_ingredient": "loratadine", "strength": "10 mg", "category": "allergy", "list_price": 24.99, "rx": false },
+    { "sku": "loratadine-10mg-30", "name": "Loratadine 10 mg, 30 tablets (store brand)", "brand": "Store brand", "active_ingredient": "loratadine", "strength": "10 mg", "category": "allergy", "list_price": 9.99, "rx": false },
+    { "sku": "zyrtec-10mg-30", "name": "Zyrtec 24hr, cetirizine 10 mg, 30 tablets", "brand": "Zyrtec", "active_ingredient": "cetirizine", "strength": "10 mg", "category": "allergy", "list_price": 26.99, "rx": false },
+    { "sku": "neilmed-nasamist", "name": "NeilMed NasaMist Saline Spray", "brand": "NeilMed", "active_ingredient": "sodium chloride", "category": "allergy", "list_price": 7.99, "rx": false },
+    { "sku": "levoit-core300-filter", "name": "Levoit Core 300 True HEPA Replacement Filter", "brand": "Levoit", "category": "allergy", "list_price": 29.99, "rx": false },
+    { "sku": "aerochamber-plus", "name": "AeroChamber Plus Flow-Vu Spacer", "brand": "AeroChamber", "category": "allergy", "list_price": 24.99, "rx": false },
+    { "sku": "albuterol-inhaler", "name": "Albuterol Sulfate Inhaler", "brand": "Albuterol", "active_ingredient": "albuterol", "category": "allergy", "list_price": 30.00, "rx": true, "keywords": ["albuterol", "rescue inhaler"] },
+
+    { "sku": "telfa-3x4-10", "name": "Telfa Non-Adherent Pads, 3x4 in, 10 ct", "brand": "Telfa", "category": "recovery", "list_price": 6.49, "rx": false },
+    { "sku": "micropore-1in", "name": "3M Micropore Paper Tape, 1 in", "brand": "3M Micropore", "category": "recovery", "list_price": 4.99, "rx": false },
+    { "sku": "flexikold-knee", "name": "FlexiKold Reusable Gel Cold Pack, knee", "brand": "FlexiKold", "category": "recovery", "list_price": 15.99, "rx": false },
+    { "sku": "voltaren-1pct-100g", "name": "Voltaren Arthritis Pain Gel, diclofenac 1%, 100 g", "brand": "Voltaren", "active_ingredient": "diclofenac sodium", "strength": "1%", "category": "recovery", "list_price": 14.99, "rx": false },
+    { "sku": "theraband-set", "name": "TheraBand Resistance Bands, 3-level set", "brand": "TheraBand", "category": "recovery", "list_price": 16.99, "rx": false },
+    { "sku": "oxycodone-5mg", "name": "Oxycodone 5 mg", "brand": "Oxycodone", "active_ingredient": "oxycodone", "category": "recovery", "list_price": 20.00, "rx": true, "keywords": ["oxycodone", "percocet", "opioid"] },
+
+    { "sku": "thermacare-menstrual-3", "name": "ThermaCare Menstrual Heat Wraps, 3 ct", "brand": "ThermaCare", "category": "cycle", "list_price": 7.99, "rx": false },
+    { "sku": "advil-200mg-50", "name": "Advil, ibuprofen 200 mg, 50 tablets", "brand": "Advil", "active_ingredient": "ibuprofen", "strength": "200 mg", "category": "cycle", "list_price": 9.99, "rx": false },
+    { "sku": "ibuprofen-200mg-100", "name": "Ibuprofen 200 mg, 100 tablets (store brand)", "brand": "Store brand", "active_ingredient": "ibuprofen", "strength": "200 mg", "category": "cycle", "list_price": 6.49, "rx": false },
+    { "sku": "aleve-220mg-24", "name": "Aleve, naproxen sodium 220 mg, 24 tablets", "brand": "Aleve", "active_ingredient": "naproxen sodium", "strength": "220 mg", "category": "cycle", "list_price": 8.99, "rx": false },
+    { "sku": "mag-glycinate-120", "name": "Doctor's Best Magnesium Glycinate, 120 tablets", "brand": "Doctor's Best", "active_ingredient": "magnesium glycinate", "category": "cycle", "list_price": 17.99, "rx": false },
+    { "sku": "lindt-85-100g", "name": "Lindt Excellence 85% Dark Chocolate, 100 g", "brand": "Lindt", "category": "cycle", "list_price": 3.99, "rx": false }
+  ]
+}

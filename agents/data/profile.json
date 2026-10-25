@@ -1,0 +1,53 @@
+{
+  "_note": "Synthetic demo profile. Each kit lists items in priority order: when an order is over budget, optional items are dropped from the bottom up. `match` is the exact product rule the user pre-approved: a SKU, a brand, or an active ingredient + strength. Nothing outside it is ever bought.",
+  "name": "Demo patient (synthetic)",
+  "location": "San Francisco, CA",
+  "kits": {
+    "diabetes": {
+      "label": "Diabetes care",
+      "budget_cap": 140.00,
+      "keywords": ["diabetes", "diabetic", "glucose", "blood sugar", "cgm", "sensor", "lancet"],
+      "items": [
+        { "key": "cgm_sensor", "label": "CGM sensors", "match": { "sku": "stelo-2pk" }, "qty": 1, "essential": true, "keywords": ["cgm", "sensor", "stelo", "biosensor"] },
+        { "key": "glucose_gel", "label": "Fast-acting glucose gel", "match": { "brand": "Dex4" }, "qty": 1, "essential": true, "keywords": ["gel", "glucose gel", "glucose shot", "dex4"] },
+        { "key": "prep_pads", "label": "Alcohol prep pads", "match": { "active_ingredient": "isopropyl alcohol", "strength": "70%" }, "qty": 1, "essential": true, "keywords": ["alcohol", "prep pad", "swab"] },
+        { "key": "lancets", "label": "Lancets", "match": { "brand": "Accu-Chek FastClix" }, "qty": 1, "essential": false, "keywords": ["lancet"] },
+        { "key": "overpatches", "label": "Sensor overpatches", "match": { "sku": "cgm-overpatch-20" }, "qty": 1, "essential": false, "keywords": ["overpatch", "patch", "cover"] }
+      ]
+    },
+    "allergy": {
+      "label": "Allergy and air quality",
+      "budget_cap": 60.00,
+      "keywords": ["allergy", "allergies", "pollen", "hay fever", "sneez", "aqi", "air quality", "smoke", "wildfire", "antihistamine", "congest"],
+      "items": [
+        { "key": "antihistamine", "label": "Non-drowsy antihistamine", "match": { "active_ingredient": "loratadine", "strength": "10 mg" }, "qty": 1, "essential": true, "keywords": ["antihistamine", "loratadine", "claritin", "allergy pill"] },
+        { "key": "saline_spray", "label": "Saline nasal spray", "match": { "brand": "NeilMed" }, "qty": 1, "essential": true, "keywords": ["saline", "nasal", "spray"] },
+        { "key": "hepa_filter", "label": "HEPA purifier filter", "match": { "sku": "levoit-core300-filter" }, "qty": 1, "essential": false, "aqi_essential": 101, "keywords": ["filter", "hepa", "purifier"] },
+        { "key": "spacer", "label": "Inhaler spacer", "match": { "brand": "AeroChamber" }, "qty": 1, "essential": false, "keywords": ["spacer", "aerochamber"] }
+      ]
+    },
+    "recovery": {
+      "label": "Post-surgery recovery",
+      "budget_cap": 45.00,
+      "keywords": ["surgery", "post-op", "recovery", "wound", "incision", "knee", "injury", "sprain", "physical therapy"],
+      "items": [
+        { "key": "gauze", "label": "Non-stick gauze pads", "match": { "brand": "Telfa" }, "qty": 1, "essential": true, "keywords": ["gauze", "pad", "dressing"] },
+        { "key": "tape", "label": "Medical paper tape", "match": { "brand": "3M Micropore" }, "qty": 1, "essential": true, "keywords": ["tape"] },
+        { "key": "cold_pack", "label": "Cold compression gel pack", "match": { "sku": "flexikold-knee" }, "qty": 1, "essential": true, "keywords": ["cold pack", "ice pack", "gel pack", "cold"] },
+        { "key": "pain_gel", "label": "Anti-inflammatory gel", "match": { "brand": "Voltaren" }, "qty": 1, "essential": false, "keywords": ["voltaren", "diclofenac", "pain gel"] },
+        { "key": "bands", "label": "Physical therapy bands", "match": { "brand": "TheraBand" }, "qty": 1, "essential": false, "keywords": ["band", "theraband", "resistance"] }
+      ]
+    },
+    "cycle": {
+      "label": "Period care",
+      "budget_cap": 30.00,
+      "keywords": ["period", "cramp", "menstrual", "cycle", "luteal", "pms"],
+      "items": [
+        { "key": "heat", "label": "Heat wraps", "match": { "brand": "ThermaCare" }, "qty": 1, "essential": true, "keywords": ["heat", "thermacare", "wrap", "patch"] },
+        { "key": "pain_relief", "label": "Pain reliever", "match": { "brand": "Advil", "active_ingredient": "ibuprofen", "strength": "200 mg" }, "qty": 1, "essential": true, "keywords": ["advil", "ibuprofen", "pain"] },
+        { "key": "magnesium", "label": "Magnesium glycinate", "match": { "active_ingredient": "magnesium glycinate" }, "qty": 1, "essential": false, "keywords": ["magnesium"] },
+        { "key": "chocolate", "label": "85% dark chocolate", "match": { "sku": "lindt-85-100g" }, "qty": 1, "essential": false, "keywords": ["chocolate"] }
+      ]
+    }
+  }
+}

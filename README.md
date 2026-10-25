@@ -8,6 +8,7 @@ Chat in the app (web + iOS + Android, Expo) or text the Telegram bot. See `plan2
   - `pipeline.ts` — shared pipeline: Jina embed → vector search memory → Cortex triage → Cortex core model + tools → reply.
   - `chat.ts` — app API. `telegram.ts` + `http.ts` — Telegram webhook and account linking. `voice.ts` — Cartesia tokens.
   - `lib/` — Cortex, Jina, Telegram clients and model tools (`web_search`, `read_page`, `bio_research`).
+- `agents/` — Health Supply Shopper, a Fetch.ai agent used in ASI:One that restocks OTC health supplies (Python, runs separately). Agent addresses and setup: [`agents/README.md`](agents/README.md).
 
 ## Run
 ```bash
