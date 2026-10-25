@@ -39,11 +39,13 @@ async def scenarios(h: Harness):
     check("allergy: total $50.96", "Total: $50.96" in r.text, r.text)
     check("allergy: spacer dropped for budget", "Left out to stay under budget: Inhaler spacer" in r.text, r.text)
     check("allergy: generic loratadine allowed by ingredient rule", "Loratadine 10 mg, 30 tablets (store brand)" in r.text, r.text)
+    check("allergy: says why Corner", "Corner Health Market is the only store that can deliver all of it in time." in r.text, r.text)
     selection = (r.payload or {}).get("approve_cta", {}).get("selection", {})
     import json
 
     r = await h.ask(json.dumps(selection))
     check("allergy: paid after approval", "**Order placed**" in r.text and "$50.96 paid" in r.text, r.text)
+    check("allergy: receipt names a simulated card, no brand", "simulated test card ending 1111" in r.text and "Visa" not in r.text, r.text)
 
     # 2. Prescription-only request is refused, nothing else ordered.
     r = await h.ask("My Dexcom G7 sensor is running out, I need it ASAP")
@@ -60,12 +62,16 @@ async def scenarios(h: Harness):
     # 5. Diabetes kit, standard delivery: cheapest is split across two merchants. Then cancel.
     r = await h.ask("Restock my diabetes kit")
     check("diabetes: split across Bayview + Corner, $139.83", "Total: $139.83" in r.text and "Bayview Pharmacy" in r.text and "Corner Health Market" in r.text, r.text)
+    check("diabetes: split saves $31.88 vs QuickCare alone", "saves $31.88 versus buying everything at QuickCare Delivery ($171.71)" in r.text, r.text)
+    rows = {row["label"]: row["value"] for row in (r.payload or {}).get("summary_rows", [])}
+    check("diabetes: card shows the savings", rows.get("Why this order") == "$31.88 less than QuickCare Delivery alone", str(rows))
     r = await h.ask("cancel")
     check("diabetes: cancel charges nothing", "Nothing was ordered or charged" in r.text, r.text)
 
     # 6. Period kit today: two optional items dropped, approve by typing "yes"; brand rule keeps Advil (no generic swap).
     r = await h.ask("Cramps are starting, get my period kit today")
     check("cycle: total $20.97 with Advil", "Total: $20.97" in r.text and "Advil" in r.text and "store brand" not in r.text, r.text)
+    check("cycle: saves $5.16 vs next store", "Saves $5.16 versus the next cheapest store, QuickCare Delivery ($26.13)" in r.text, r.text)
     r = await h.ask("yes")
     check("cycle: paid", "$20.97 paid" in r.text, r.text)
 

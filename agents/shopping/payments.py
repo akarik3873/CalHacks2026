@@ -13,7 +13,7 @@ class Authorization:
 
 
 class SimulatedCardNetwork:
-    card_label = "Visa test card ending 1111 (simulated)"
+    card_label = "a simulated test card ending 1111"
 
     def __init__(self) -> None:
         self._auths: dict[str, Authorization] = {}

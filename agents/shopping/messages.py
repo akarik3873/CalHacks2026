@@ -26,6 +26,28 @@ def text_message(text: str, end_session: bool = False) -> ChatMessage:
     return ChatMessage(timestamp=datetime.now(timezone.utc), msg_id=uuid4(), content=content)
 
 
+def savings(cart: Cart) -> tuple[str, str]:
+    """Why this order beats the other ways to buy the same items: (sentence for the chat text, short value for the card)."""
+    names = [m.name for m in cart.merchants.values()]
+    others = {name: total for name, total in cart.single_store_totals.items() if name not in names}
+    if len(names) > 1:
+        if not others:
+            return f"No single store can deliver all of it in time, so the order is split across {len(names)} stores.", "Only way to get everything in time"
+        name, total = min(others.items(), key=lambda kv: kv[1])
+        saved = fmt(total - cart.total_cents)
+        return (
+            f"Splitting it across {len(names)} stores saves {saved} versus buying everything at {name} ({fmt(total)}), delivery fees included.",
+            f"{saved} less than {name} alone",
+        )
+    if not others:
+        return f"{names[0]} is the only store that can deliver all of it in time.", "Only store that has it all in time"
+    name, total = min(others.items(), key=lambda kv: kv[1])
+    if total == cart.total_cents:
+        return f"Same total as {name}; {names[0]} delivers as fast or faster.", f"Same total as {name}"
+    saved = fmt(total - cart.total_cents)
+    return f"Saves {saved} versus the next cheapest store, {name} ({fmt(total)}), delivery fees included.", f"{saved} less than {name}"
+
+
 def review_message(cart: Cart, rx_refused: list[str]) -> ChatMessage:
     lines = [f"**{cart.kit_label}**: the cheapest order that fits your rules, delivered {URGENCY_LABEL[cart.urgency]}.", ""]
     for line in cart.lines:
@@ -34,7 +56,8 @@ def review_message(cart: Cart, rx_refused: list[str]) -> ChatMessage:
     for m in cart.merchants.values():
         fee = fmt(m.delivery_fee_cents) if m.delivery_fee_cents else "free"
         lines.append(f"- Delivery from {m.name}: {fee}, arrives in {eta(m.delivery_minutes)}")
-    lines += ["", f"**Total: {fmt(cart.total_cents)}** (your limit is {fmt(cart.budget_cap_cents)})"]
+    saved_text, saved_value = savings(cart)
+    lines += ["", f"**Total: {fmt(cart.total_cents)}** (your limit is {fmt(cart.budget_cap_cents)})", saved_text]
     if cart.dropped:
         lines.append(f"Left out to stay under budget: {', '.join(cart.dropped)}.")
     if cart.unavailable:
@@ -56,6 +79,7 @@ def review_message(cart: Cart, rx_refused: list[str]) -> ChatMessage:
         {"label": f"Delivery, {m.name}", "value": f"{fmt(m.delivery_fee_cents)}, {eta(m.delivery_minutes)}"} for m in cart.merchants.values()
     ]
     rows.append({"label": "Total", "value": f"{fmt(cart.total_cents)} of {fmt(cart.budget_cap_cents)} budget"})
+    rows.append({"label": "Why this order", "value": saved_value})
     card = {
         "title": f"Approve {cart.kit_label.lower()} order",
         "summary_rows": rows,
@@ -96,7 +120,7 @@ def receipt_message(cart: Cart, paid: list[dict], failed: list[dict], card_label
         lines.append(f"- {f['merchant']}: **not placed**, {f['reason']}. You weren't charged for it.")
     if paid:
         total = sum(p["amount_cents"] for p in paid)
-        lines += ["", f"Charged {fmt(total)} to {card_label}. Nothing real was charged: this demo uses simulated merchants and payments."]
+        lines += ["", f"Charged {fmt(total)} to {card_label}. Nothing real was charged: this demo uses simulated merchants and a simulated card network."]
     else:
         lines += ["", "Nothing was charged. Ask again and I'll get fresh prices."]
     return text_message("\n".join(lines), end_session=True)

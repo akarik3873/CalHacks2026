@@ -28,7 +28,7 @@ An agent that restocks over-the-counter health supplies. Tell it what you need, 
 2. **Checks live air quality** for allergy and air-quality orders (US AQI from [Open-Meteo](https://open-meteo.com/)). At AQI 101 or above, the HEPA filter can't be dropped to save money, and delivery moves up to today unless you set a time. When the air is fine, nothing changes.
 3. **Asks every merchant agent for a quote.** All three answer in parallel with price, stock, delivery time, and fee.
 4. **Builds the cheapest valid order.** Tries every combination of merchants, counting delivery fees, and keeps only products you pre-approved that are in stock and arrive in time. Over budget? It drops optional items from the bottom of your priority list, and tells you which.
-5. **Asks you to approve.** Sends an ASI Interactive Card (review card) with every item, merchant, fee, and the total. Nothing is charged yet.
+5. **Asks you to approve.** Sends an ASI Interactive Card (review card) with every item, merchant, fee, and the total, plus what it saves versus the next cheapest way to buy the same items (or why only one store works). Nothing is charged yet.
 6. **Pays each merchant with the Agent Payment Protocol.** Merchant sends `RequestPayment`, the shopper checks the amount and recipient match what you approved, authorizes the card, and sends `CommitPayment`. The merchant verifies the authorization and replies `CompletePayment`.
 7. **Sends a receipt** with order IDs and authorization codes, and writes an audit log entry.
 
@@ -65,7 +65,7 @@ All three use port 8003, so they run alongside `run.py`, but not at the same tim
 
 | Script | What it checks | Network |
 |---|---|---|
-| `scripts/smoke.py` | Main flows end to end: every kit, approve and cancel, prescription refusal, emergencies, budgets, split orders, model and air-quality rules (31 checks) | none |
+| `scripts/smoke.py` | Main flows end to end: every kit, approve and cancel, prescription refusal, emergencies, budgets, split orders, model and air-quality rules, savings line, receipt wording (36 checks) | none |
 | `scripts/edge_cases.py` | Merchants going down, prices changing mid-order, inflated payment requests, lost payment confirmations, partial failures, sold-out items, double taps and stale cards, several users at once, odd and hostile input; ends by checking no stock is left on hold and every card authorization was captured or voided (46 checks) | none |
 | `scripts/live_check.py` | Talks to the running shopper through the Almanac and the Agentverse mailbox (the same path ASI:One uses) and places one simulated order | real |
 
