@@ -100,8 +100,10 @@ export function useVoice(enabled: boolean, messages: ChatMessage[] | undefined, 
     for (const m of messages) {
       if (spoken.current.has(m._id)) continue;
       spoken.current.add(m._id);
-      // Only replies to what was asked here (not Telegram), and never the shopper's list of store links.
-      if (enabled && m.role === "assistant" && m.channel === "app" && !m.kind) {
+      // Only replies to what was asked here (not Telegram), never the shopper's list of store links, and not
+      // while the mic is open (a late reply, like a CREAO report, would end up in the recording).
+      const micOpen = micRef.current === "asking" || micRef.current === "recording";
+      if (enabled && m.role === "assistant" && m.channel === "app" && !m.kind && !micOpen) {
         speaker.speak({ id: m._id, text: m.text });
       }
     }
