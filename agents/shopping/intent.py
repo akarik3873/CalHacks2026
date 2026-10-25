@@ -25,9 +25,10 @@ RX_TERMS = ("insulin", "antibiotic", "amoxicillin", "ozempic", "wegovy", "metfor
 ASAP_WORDS = ("asap", "urgent", "right away", "right now", "immediately", "within an hour", "in an hour", "as soon as possible")
 TODAY_WORDS = ("today", "tonight", "this evening", "this afternoon", "same day", "same-day")
 WHOLE_KIT_WORDS = ("kit", "everything", "restock", "usual", "supplies", "all my")
+AMOUNT = r"(\d{1,3}(?:,\d{3})+|\d+)(\.\d{1,2})?"  # 1,000 or 1000, optional cents
 BUDGET_PATTERNS = (
-    re.compile(r"\$\s*(\d{1,4}(?:\.\d{1,2})?)"),
-    re.compile(r"\b(\d{1,4}(?:\.\d{1,2})?)\s*(?:dollars|usd|bucks)\b", re.IGNORECASE),
+    re.compile(r"\$\s*" + AMOUNT),
+    re.compile(r"\b" + AMOUNT + r"\s*(?:dollars|usd|bucks)\b", re.IGNORECASE),
 )
 
 
@@ -196,7 +197,7 @@ def _stated_budget(text: str) -> int | None:
     for pattern in BUDGET_PATTERNS:
         found = pattern.search(text)
         if found:
-            return to_cents(float(found.group(1)))
+            return to_cents(float(found.group(1).replace(",", "") + (found.group(2) or "")))
     return None
 
 

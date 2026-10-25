@@ -17,6 +17,7 @@ from .intent import Clarify, Emergency, OrderIntent, Refuse, Signals, build_inte
 ASI_ONE_URL = "https://api.asi1.ai/v1/chat/completions"
 ASI_ONE_TIMEOUT_SECONDS = 15
 URGENCY_ORDER = ("asap", "today", "standard")
+MAX_MODEL_INPUT_CHARS = 2000
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +138,11 @@ async def understand_request(
 ) -> tuple[OrderIntent | Clarify | Emergency | Refuse, str]:
     """Returns the intent and which reader decided the kit ("asi1" or "rules")."""
     rules = rule_signals(text, kits, catalog)
-    model = signals_from_model(await model_call(system_prompt(kits), text), kits)
+    try:
+        raw = await model_call(system_prompt(kits), text[:MAX_MODEL_INPUT_CHARS])
+    except Exception as error:  # a broken model must never block the rules
+        logger.warning(f"Model call raised: {error!r}")
+        raw = None
+    model = signals_from_model(raw, kits)
     signals = merge(rules, model)
     return build_intent(text, signals, kits, catalog), signals.source

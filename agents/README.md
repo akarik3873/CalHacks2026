@@ -60,7 +60,22 @@ cp .env.example .env    # then set SHOPPER_SEED (a long random secret) and, opti
 
 Open the **Agent Inspector** link from the log, click **Connect**, and choose **Mailbox**. The shopper is then reachable from ASI:One. It listens on port 8001; the merchants on 8002.
 
-**Test without any network:** `.venv/Scripts/python scripts/smoke.py` runs every flow end to end (31 checks), with fixed stand-ins for the ASI:One model and the air-quality service. It uses port 8003, so it can run alongside `run.py`.
+## Tests
+All three use port 8003, so they run alongside `run.py`, but not at the same time as each other.
+
+| Script | What it checks | Network |
+|---|---|---|
+| `scripts/smoke.py` | Main flows end to end: every kit, approve and cancel, prescription refusal, emergencies, budgets, split orders, model and air-quality rules (31 checks) | none |
+| `scripts/edge_cases.py` | Merchants going down, prices changing mid-order, inflated payment requests, lost payment confirmations, partial failures, sold-out items, double taps and stale cards, several users at once, odd and hostile input; ends by checking no stock is left on hold and every card authorization was captured or voided (46 checks) | none |
+| `scripts/live_check.py` | Talks to the running shopper through the Almanac and the Agentverse mailbox (the same path ASI:One uses) and places one simulated order | real |
+
+The offline tests replace the ASI:One model and the air-quality service with fixed stand-ins, so results are repeatable.
+
+## Known limits
+- One synthetic demo profile is shared by every user.
+- Each item is ordered in quantity 1.
+- Simulated merchants refill to their starting stock every hour, so repeated demos give the same answers.
+- Carts wait 15 minutes for approval, then expire.
 
 ## Resources
 - [Fetch.ai uAgents](https://innovationlab.fetch.ai/resources/docs/agent-creation/uagent-creation)

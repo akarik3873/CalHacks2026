@@ -81,13 +81,22 @@ def review_message(cart: Cart, rx_refused: list[str]) -> ChatMessage:
 
 
 def receipt_message(cart: Cart, paid: list[dict], failed: list[dict], card_label: str) -> ChatMessage:
-    lines = ["**Order placed**" if not failed else "**Order partly placed**", ""]
+    if not paid:
+        header = "**Order not placed**"
+    elif failed:
+        header = "**Order partly placed**"
+    else:
+        header = "**Order placed**"
+    lines = [header, ""]
     for p in paid:
         lines.append(f"- {p['merchant']}: {fmt(p['amount_cents'])} paid, order `{p['order_id']}`, auth `{p['auth_id']}`, arrives in {eta(p['eta_minutes'])}")
         for item in p["items"]:
             lines.append(f"  - {item}")
     for f in failed:
         lines.append(f"- {f['merchant']}: **not placed**, {f['reason']}. You weren't charged for it.")
-    total = sum(p["amount_cents"] for p in paid)
-    lines += ["", f"Charged {fmt(total)} to {card_label}. Nothing real was charged: this demo uses simulated merchants and payments."]
+    if paid:
+        total = sum(p["amount_cents"] for p in paid)
+        lines += ["", f"Charged {fmt(total)} to {card_label}. Nothing real was charged: this demo uses simulated merchants and payments."]
+    else:
+        lines += ["", "Nothing was charged. Ask again and I'll get fresh prices."]
     return text_message("\n".join(lines), end_session=True)
