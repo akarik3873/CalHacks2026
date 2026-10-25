@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
+import { registerStaticRoutes } from "@convex-dev/static-hosting";
 import { httpAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { auth } from "./auth";
 
 const http = httpRouter();
@@ -48,6 +49,28 @@ http.route({
     return new Response("ok");
   }),
 });
+
+// CREAO run-finished webhook. The URL carries our secret (see lib/creao.ts webhookUrl); the body is only used to
+// find the run, and the result is re-fetched from CREAO. Always 200 for a valid secret so CREAO doesn't retry.
+http.route({
+  path: "/creao",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const secret = process.env.CREAO_WEBHOOK_SECRET;
+    const given = new URL(req.url).searchParams.get("token") ?? "";
+    if (!secret || !safeEqual(given, secret)) {
+      return new Response("forbidden", { status: 403 });
+    }
+    const body = await req.json().catch(() => null);
+    if (typeof body?.runId === "string" && body.runId) {
+      await ctx.runMutation(internal.creao.webhookReceived, { runId: body.runId });
+    }
+    return new Response("ok");
+  }),
+});
+
+// The Expo web app (uploaded with `npm run deploy:web`). Registered last: exact routes above win over this catch-all.
+registerStaticRoutes(http, components.staticHosting);
 
 function safeEqual(a: string, b: string) {
   if (a.length !== b.length) return false;

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../convex/_generated/api";
+import { DAILY_LIMIT } from "../convex/pipeline";
 import {
   cortexCalls,
   createAppUser,
@@ -40,7 +41,7 @@ describe("app chat", () => {
     expect(calls).toHaveLength(0);
   });
 
-  test("message -> embed -> triage -> core -> reply, embeddings stored, list hides vectors", async () => {
+  test("message -> Jev -> embed -> core -> reply, embeddings stored, list hides vectors", async () => {
     const t = setup();
     const { calls } = mockApis();
     const { userId, as } = await createAppUser(t);
@@ -61,9 +62,8 @@ describe("app chat", () => {
     const cx = cortexCalls(calls);
     expect(cx[0].url).toBe("https://acme.snowflakecomputing.com/api/v2/cortex/v1/chat/completions");
     expect((cx[0].init!.headers as any).Authorization).toBe("Bearer pat_test");
-    expect(cx.map((c) => c.body.model)).toEqual(["llama3.1-8b", "openai-gpt-5.4"]);
-    expect(cx[0].body.tools).toBeUndefined();
-    expect(cx[1].body.tools.map((x: any) => x.function.name)).toEqual([
+    expect(cx.map((c) => c.body.model)).toEqual(["openai-gpt-5.4"]);
+    expect(cx[0].body.tools.map((x: any) => x.function.name)).toEqual([
       "web_search",
       "read_page",
       "bio_research",
@@ -79,7 +79,7 @@ describe("app chat", () => {
     const { as } = await createAppUser(t);
     await as.mutation(api.chat.send, { text: "hi" });
     await drain(t);
-    expect(cortexCalls(calls)[1].body.model).toBe("openai-gpt-6.1-sol");
+    expect(cortexCalls(calls)[0].body.model).toBe("openai-gpt-6.1-sol");
   });
 
   test("users only see their own messages", async () => {
@@ -132,8 +132,8 @@ describe("memory (vector search)", () => {
     });
     await a.as.mutation(api.chat.send, { text: "Am I allergic to penicillin antibiotics?" });
     await drain(t);
-    const all = JSON.stringify(cortexCalls(calls)[1].body.messages);
-    const system = cortexCalls(calls)[1].body.messages[0].content as string;
+    const all = JSON.stringify(cortexCalls(calls)[0].body.messages);
+    const system = cortexCalls(calls)[0].body.messages[0].content as string;
     expect(system).toContain("Relevant past messages:\n- [user] I am allergic to penicillin");
     expect(all).not.toContain("peanuts");
   });
@@ -150,24 +150,24 @@ describe("memory (vector search)", () => {
   });
 });
 
-describe("triage", () => {
+describe("triage (Jev)", () => {
   test("urgent -> warning prompt + urgent flag on reply", async () => {
     const t = setup();
-    const { calls } = mockApis({ triage: { content: 'Sure: {"medical": true, "urgent": true}' } });
+    const { calls } = mockApis({ jev: { urgent: 0.97 } });
     const { userId, as } = await createAppUser(t);
     await as.mutation(api.chat.send, { text: "crushing chest pain" });
     await drain(t);
-    const system = cortexCalls(calls)[1].body.messages[0].content as string;
+    const system = cortexCalls(calls)[0].body.messages[0].content as string;
     expect(system).toContain("URGENT");
     expect(system).toContain("911");
     const reply = (await messagesOf(t, userId))[1];
     expect(reply.urgent).toBe(true);
   });
 
-  test("garbage or failing triage falls back to non-urgent and still answers", async () => {
-    for (const triage of [{ content: "no json here" }, new Error("boom")]) {
+  test("low score or failing Jev falls back to non-urgent and still answers", async () => {
+    for (const jev of [{ urgent: 0.2 }, new Error("boom")]) {
       const t = setup();
-      mockApis({ triage });
+      mockApis({ jev });
       const { userId, as } = await createAppUser(t);
       await as.mutation(api.chat.send, { text: "hi" });
       await drain(t);
@@ -191,7 +191,7 @@ describe("tools", () => {
     await as.mutation(api.chat.send, { text: "where is urgent care near 94704" });
     await drain(t);
     expect(calls.some((c) => c.url === "https://s.jina.ai/?q=urgent%20care%2094704")).toBe(true);
-    const second = cortexCalls(calls)[2].body.messages;
+    const second = cortexCalls(calls)[1].body.messages;
     const toolMsg = second.find((m: any) => m.role === "tool");
     expect(toolMsg.tool_call_id).toBe("c1");
     expect(toolMsg.content).toContain("Urgent care near 94704");
@@ -228,7 +228,7 @@ describe("tools", () => {
     const { userId, as } = await createAppUser(t);
     await as.mutation(api.chat.send, { text: "x" });
     await drain(t);
-    const tools = cortexCalls(calls)[2].body.messages.filter((m: any) => m.role === "tool");
+    const tools = cortexCalls(calls)[1].body.messages.filter((m: any) => m.role === "tool");
     expect(tools[0].content).toMatch(/Tool error/);
     expect(tools[1].content).toMatch(/Unknown tool/);
     expect((await messagesOf(t, userId))[1].text).toBe("ok");
@@ -241,7 +241,7 @@ describe("tools", () => {
     const { userId, as } = await createAppUser(t);
     await as.mutation(api.chat.send, { text: "x" });
     await drain(t);
-    const core = cortexCalls(calls).slice(1);
+    const core = cortexCalls(calls);
     expect(core).toHaveLength(6);
     expect(core[5].body.tools).toBeUndefined();
     expect((await messagesOf(t, userId))[1].text).toBe("final");
@@ -258,17 +258,17 @@ describe("tools", () => {
 });
 
 describe("daily limit", () => {
-  test("10 messages per user per rolling 24h; 11th is rejected and not stored", async () => {
+  test("DAILY_LIMIT (100) messages per user per rolling 24h; the next is rejected and not stored", async () => {
     const t = setup();
     const { calls } = mockApis();
     const a = await createAppUser(t, "a@example.com");
     const b = await createAppUser(t, "b@example.com");
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < DAILY_LIMIT; i++) {
       expect(await a.as.mutation(api.chat.send, { text: `q${i}` })).toMatchObject({ limited: false });
     }
     await drain(t);
     const before = cortexCalls(calls).length;
-    expect(await a.as.mutation(api.chat.send, { text: "one more" })).toEqual({ limited: true, limit: 10 });
+    expect(await a.as.mutation(api.chat.send, { text: "one more" })).toEqual({ limited: true, limit: DAILY_LIMIT });
     await drain(t);
     expect(cortexCalls(calls).length).toBe(before);
     expect((await messagesOf(t, a.userId)).some((m) => m.text === "one more")).toBe(false);
@@ -306,7 +306,7 @@ describe("memory window", () => {
     });
     await as.mutation(api.chat.send, { text: "why does my knee hurt when running" });
     await drain(t);
-    const [system, ...rest] = cortexCalls(calls)[1].body.messages;
+    const [system, ...rest] = cortexCalls(calls)[0].body.messages;
     expect(system.content).toContain("- [user] my knee hurts when running");
     expect(system.content).not.toContain("knee hurts running again");
     expect(rest.some((m: any) => m.content === "knee hurts running again")).toBe(true);
@@ -320,6 +320,6 @@ describe("memory window", () => {
     await drain(t);
     await as.mutation(api.chat.send, { text: "my sore throat is worse" });
     await drain(t);
-    expect(cortexCalls(calls)[3].body.messages[0].content).not.toContain("Relevant past messages:\n");
+    expect(cortexCalls(calls)[1].body.messages[0].content).not.toContain("Relevant past messages:\n");
   });
 });

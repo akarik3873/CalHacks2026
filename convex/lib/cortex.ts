@@ -17,7 +17,6 @@ export type ToolDef = {
   function: { name: string; description: string; parameters: object };
 };
 
-export const TRIAGE_MODEL = () => process.env.CORTEX_TRIAGE_MODEL ?? "llama3.1-8b";
 export const CORE_MODEL = () => process.env.CORTEX_CORE_MODEL ?? "openai-gpt-5.4";
 
 export async function complete(opts: {

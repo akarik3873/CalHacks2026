@@ -3,6 +3,7 @@ import { api } from "../convex/_generated/api";
 import { internal } from "../convex/_generated/api";
 import { chunkText, markdownToTelegramHtml } from "../convex/lib/telegram";
 import { Call, cortexCalls, createAppUser, drain, messagesOf, mockApis, setEnv, setup, telegramSends, telegramTyping } from "./helpers";
+import { DAILY_LIMIT } from "../convex/pipeline";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -279,14 +280,14 @@ describe("daily limit on telegram", () => {
     const { calls } = mockApis();
     const { as } = await createAppUser(t);
     await linkVia(t, calls, await newCode(as), 555, "yes");
-    for (let i = 0; i < 5; i++) await as.mutation(api.chat.send, { text: `app ${i}` });
-    for (let i = 0; i < 5; i++) await post(t, update(`tg ${i}`));
+    for (let i = 0; i < DAILY_LIMIT / 2; i++) await as.mutation(api.chat.send, { text: `app ${i}` });
+    for (let i = 0; i < DAILY_LIMIT / 2; i++) await post(t, update(`tg ${i}`));
     await drain(t);
     const modelCalls = cortexCalls(calls).length;
     await post(t, update("over the limit"));
     await drain(t);
     expect(cortexCalls(calls).length).toBe(modelCalls);
-    expect(telegramSends(calls).at(-1)!.body.text).toMatch(/limit of 10 messages/);
+    expect(telegramSends(calls).at(-1)!.body.text).toMatch(/limit of 100 messages/);
     expect(await as.mutation(api.chat.send, { text: "app too" })).toMatchObject({ limited: true });
   });
 });
@@ -348,7 +349,7 @@ describe("location", () => {
     expect(telegramSends(calls)[0].body.text).toMatch(/saved your location/);
     await post(t, update("where is urgent care"));
     await drain(t);
-    expect(cortexCalls(calls)[1].body.messages[0].content).toContain("User's saved location: 37.8712,-122.2730");
+    expect(cortexCalls(calls)[0].body.messages[0].content).toContain("User's saved location: 37.8712,-122.2730");
   });
 
   test("model can save a location the user mentions", async () => {
@@ -363,9 +364,9 @@ describe("location", () => {
     await as.mutation(api.chat.send, { text: "I live in Berkeley 94704" });
     await drain(t);
     expect((await as.query(api.chat.me))!.location).toBe("Berkeley, CA 94704");
-    const tool = cortexCalls(calls)[2].body.messages.find((m: any) => m.role === "tool");
+    const tool = cortexCalls(calls)[1].body.messages.find((m: any) => m.role === "tool");
     expect(tool.content).toBe("Saved location: Berkeley, CA 94704");
-    expect(cortexCalls(calls)[1].body.tools.map((x: any) => x.function.name)).toContain("save_location");
+    expect(cortexCalls(calls)[0].body.tools.map((x: any) => x.function.name)).toContain("save_location");
   });
 
   test("settings: set and clear location", async () => {
