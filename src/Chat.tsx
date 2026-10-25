@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -12,17 +12,11 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import {
-  RecordingPresets,
-  requestRecordingPermissionsAsync,
-  setAudioModeAsync,
-  useAudioRecorder,
-} from "expo-audio";
 import { api } from "../convex/_generated/api";
 import { colors } from "./theme";
-import { CartesiaToken, speak, transcribe } from "./voice";
+import { useVoice } from "./useVoice";
 import { Markdown } from "./Markdown";
 
 export function Chat() {
@@ -39,6 +33,7 @@ export function Chat() {
 
   const submit = async (value = text) => {
     if (!value.trim()) return;
+    voice.prepare();
     setText("");
     setNotice(null);
     const res = await send({ text: value });
@@ -62,7 +57,7 @@ export function Chat() {
         </Pressable>
       </View>
 
-      {showSettings && me && <Settings me={me} />}
+      {showSettings && me && <Settings me={me} onVoiceModeOn={() => voice.prepare(true)} />}
 
       {messages === undefined ? (
         <ActivityIndicator style={{ flex: 1 }} />
@@ -129,13 +124,20 @@ export function Chat() {
       </View>
       {notice && <Text style={styles.error}>{notice}</Text>}
       {voice.status && (
-        <Text style={styles.voiceStatus} accessibilityLiveRegion="polite">
-          {voice.status}
-        </Text>
+        <View style={styles.noteRow}>
+          <Text style={[styles.voiceStatus, styles.noteText]} accessibilityLiveRegion="polite">
+            {voice.status}
+          </Text>
+          {voice.speaking && voice.mic === "idle" && (
+            <Pressable onPress={voice.stopSpeaking} accessibilityRole="button" accessibilityLabel="Stop speaking">
+              <Text style={styles.errorAction}>Stop</Text>
+            </Pressable>
+          )}
+        </View>
       )}
       {voice.error && (
-        <View style={styles.errorRow}>
-          <Text style={[styles.error, styles.errorText]} accessibilityLiveRegion="assertive">
+        <View style={styles.noteRow}>
+          <Text style={[styles.error, styles.noteText]} accessibilityLiveRegion="assertive">
             {voice.error.text}
           </Text>
           {voice.error.openSettings && (
@@ -154,8 +156,10 @@ export function Chat() {
 
 function Settings({
   me,
+  onVoiceModeOn,
 }: {
   me: { email: string | null; voiceMode: boolean; telegramLinked: boolean; location: string };
+  onVoiceModeOn: () => void;
 }) {
   const setVoiceMode = useMutation(api.chat.setVoiceMode);
   const setLocation = useMutation(api.chat.setLocation);
@@ -180,7 +184,13 @@ function Settings({
       <Text style={styles.muted}>{me.email}</Text>
       <View style={styles.settingRow}>
         <Text style={styles.settingLabel}>Voice mode</Text>
-        <Switch value={me.voiceMode} onValueChange={(enabled) => void setVoiceMode({ enabled })} />
+        <Switch
+          value={me.voiceMode}
+          onValueChange={(enabled) => {
+            void setVoiceMode({ enabled });
+            if (enabled) onVoiceModeOn();
+          }}
+        />
       </View>
       <View style={styles.settingRow}>
         <Text style={styles.settingLabel}>Location</Text>
@@ -205,168 +215,6 @@ function Settings({
       </Pressable>
     </View>
   );
-}
-
-// Voice input steps: waiting on the permission prompt, recording, then transcribing.
-type MicState = "idle" | "asking" | "recording" | "transcribing";
-
-const MAX_RECORDING_MS = 2 * 60_000;
-const MIC_STATUS: Record<MicState, string | null> = {
-  idle: null,
-  asking: "Waiting for microphone permission…",
-  recording: "Listening… tap Stop when you're done.",
-  transcribing: "Transcribing…",
-};
-
-type VoiceError = { text: string; openSettings?: boolean };
-
-// Turn recorder and permission failures into something the user can act on.
-function micError(e: unknown): VoiceError {
-  const name = (e as { name?: string })?.name;
-  if (name === "NotAllowedError" || name === "SecurityError") return micBlocked();
-  if (name === "NotFoundError" || name === "OverconstrainedError") return { text: "No microphone found." };
-  if (name === "NotReadableError") return { text: "Your microphone is being used by another app." };
-  return { text: `Couldn't start recording: ${(e as Error)?.message ?? String(e)}` };
-}
-
-function micBlocked(): VoiceError {
-  return Platform.OS === "web"
-    ? { text: "Microphone access is blocked. Allow it in your browser's site settings, then tap Mic again." }
-    : { text: "Microphone access is off for Health Assistant.", openSettings: true };
-}
-
-// Mic -> Cartesia STT -> send; new assistant replies -> Cartesia TTS while voice mode is on.
-function useVoice(
-  enabled: boolean,
-  messages: { _id: string; role: string; text: string }[] | undefined,
-  submit: (text: string) => Promise<void>,
-) {
-  const getToken = useAction(api.voice.token);
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const [mic, setMicState] = useState<MicState>("idle");
-  const [error, setError] = useState<VoiceError | null>(null);
-  const tokenRef = useRef<{ value: CartesiaToken; at: number } | null>(null);
-  const spoken = useRef<Set<string> | null>(null);
-  // The state is mirrored in a ref so double taps and timers see the latest step, not a stale render's.
-  const micRef = useRef<MicState>("idle");
-  const autoStop = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const setMic = (next: MicState) => {
-    micRef.current = next;
-    setMicState(next);
-  };
-
-  const token = async () => {
-    // Tokens last 5 min; refresh after 4.
-    if (!tokenRef.current || Date.now() - tokenRef.current.at > 4 * 60_000) {
-      tokenRef.current = { value: await getToken(), at: Date.now() };
-    }
-    return tokenRef.current.value;
-  };
-
-  useEffect(() => {
-    if (!messages) return;
-    // Don't read out history on first load, only replies that arrive later.
-    if (!spoken.current) {
-      spoken.current = new Set(messages.map((m) => m._id));
-      return;
-    }
-    for (const m of messages) {
-      if (spoken.current.has(m._id)) continue;
-      spoken.current.add(m._id);
-      if (enabled && m.role === "assistant") {
-        token()
-          .then((t) => speak(t, m.text))
-          .catch((e) => setError({ text: `Couldn't play the reply: ${(e as Error).message}` }));
-      }
-    }
-  }, [messages, enabled]);
-
-  const clearAutoStop = () => {
-    if (autoStop.current) clearTimeout(autoStop.current);
-    autoStop.current = null;
-  };
-
-  // Stop the recorder and hand recording back to playback; never throws.
-  const release = async () => {
-    clearAutoStop();
-    try {
-      if (recorder.isRecording) await recorder.stop();
-    } catch (e) {
-      console.warn("recorder.stop failed", e);
-    }
-    await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
-  };
-
-  const start = async () => {
-    if (micRef.current !== "idle") return;
-    setError(null);
-    // Browsers only expose the microphone on https (or localhost) pages.
-    if (Platform.OS === "web" && typeof window !== "undefined" && !window.isSecureContext) {
-      setError({ text: "Voice input needs a secure (https) page." });
-      return;
-    }
-    setMic("asking");
-    try {
-      const perm = await requestRecordingPermissionsAsync();
-      if (!perm.granted) {
-        setMic("idle");
-        setError(perm.canAskAgain && Platform.OS !== "web"
-          ? { text: "Voice input needs microphone access. Tap Mic to try again." }
-          : micBlocked());
-        return;
-      }
-      // Voice mode may have been switched off while the prompt was open.
-      if ((micRef.current as MicState) !== "asking") return;
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-      setMic("recording");
-      autoStop.current = setTimeout(() => void stop(), MAX_RECORDING_MS);
-    } catch (e) {
-      console.error("starting a recording failed", e);
-      await release();
-      setMic("idle");
-      setError(micError(e));
-    }
-  };
-
-  const stop = async () => {
-    if (micRef.current !== "recording") return;
-    clearAutoStop();
-    setMic("transcribing");
-    try {
-      await recorder.stop();
-      await setAudioModeAsync({ allowsRecording: false });
-      if (!recorder.uri) throw new Error("No recording");
-      const text = (await transcribe(await token(), recorder.uri)).trim();
-      if (text) await submit(text);
-      else setError({ text: "I didn't catch anything. Tap Mic and try again." });
-    } catch (e) {
-      console.error("voice input failed", e);
-      setError({ text: "Couldn't transcribe that. Please try again, or type your message instead." });
-    } finally {
-      setMic("idle");
-    }
-  };
-
-  // Switching voice mode off (or leaving the screen) mid-recording discards the recording.
-  useEffect(() => {
-    if (enabled) return;
-    if (micRef.current === "recording" || micRef.current === "asking") {
-      setMic("idle");
-      void release();
-    }
-  }, [enabled]);
-  useEffect(() => () => void release(), []);
-
-  return {
-    mic,
-    status: MIC_STATUS[mic],
-    error,
-    start: () => void start(),
-    stop: () => void stop(),
-    dismissError: () => setError(null),
-  };
 }
 
 const styles = StyleSheet.create({
@@ -409,8 +257,8 @@ const styles = StyleSheet.create({
   micActive: { backgroundColor: colors.danger },
   micText: { color: "#fff", fontWeight: "600" },
   error: { color: colors.danger, paddingHorizontal: 16, paddingBottom: 8 },
-  errorRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingRight: 16 },
-  errorText: { flex: 1 },
+  noteRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingRight: 16 },
+  noteText: { flex: 1 },
   errorAction: { color: colors.primary, fontWeight: "600", paddingBottom: 8 },
   voiceStatus: { color: colors.muted, paddingHorizontal: 16, paddingBottom: 8 },
 });

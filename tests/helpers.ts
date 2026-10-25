@@ -50,6 +50,9 @@ export function storeListing(site: string, q: string) {
     : { title: q, url: `https://www.walmart.com/ip/Some-Product/${fakeWalmartId(q)}` };
 }
 
+// What the fake Cartesia TTS returns: an MP3 frame header and a few bytes.
+export const FAKE_MP3 = new Uint8Array([0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4]);
+
 export function mockApis(opts: {
   core?: CortexReply[];
   jinaEmbedFail?: boolean;
@@ -62,6 +65,7 @@ export function mockApis(opts: {
   shopperModel?: string | Error | ((text: string) => string | undefined);
   // Store product search results for (site, query); default storeListing. An Error = Jina search down for stores.
   shopSearch?: Error | ((site: string, q: string) => { title: string; url: string }[]);
+  cartesiaTtsFail?: boolean; // /tts/bytes answers 500
 } = {}) {
   const calls: Call[] = [];
   const core = [...(opts.core ?? [{ content: "Rest and drink water." }])];
@@ -110,6 +114,10 @@ export function mockApis(opts: {
       return Response.json({ ok: true });
     }
     if (url === "https://api.cartesia.ai/access-token") return Response.json({ token: "tok_123" });
+    if (url === "https://api.cartesia.ai/tts/bytes") {
+      if (opts.cartesiaTtsFail) return new Response("overloaded", { status: 500 });
+      return new Response(FAKE_MP3, { headers: { "Content-Type": "audio/mpeg" } });
+    }
     if (url === CREAO_REPORT_URL) return new Response("# Symptom & Biosensor Health Analysis\n\nFull report.");
     if (url.startsWith("https://agent.creao.ai/api/v1/apps/")) {
       if (init?.method === "POST") {

@@ -84,6 +84,8 @@ export default defineSchema({
     channel,
     embedding: v.optional(v.array(v.float64())),
     urgent: v.optional(v.boolean()),
+    // "links": the shopper's store links under a reply. Shown, but never read aloud in voice mode.
+    kind: v.optional(v.literal("links")),
   })
     .index("by_user", ["userId"])
     .vectorIndex("by_embedding", {

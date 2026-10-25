@@ -276,7 +276,7 @@ export const saveReply = internalMutation({
     if (!extra) return saveAssistantReply(ctx, args);
     // Two messages in the app; one Telegram message so they can't arrive out of order.
     await saveAssistantReply(ctx, args, false);
-    await saveAssistantReply(ctx, { ...args, text: extra, urgent: false }, false);
+    await saveAssistantReply(ctx, { ...args, text: extra, urgent: false, kind: "links" }, false);
     if (args.channel === "telegram") {
       await ctx.scheduler.runAfter(0, internal.pipeline.deliverTelegram, {
         userId: args.userId,
@@ -296,7 +296,7 @@ export const setFlow = internalMutation({
 // Also used for replies that arrive later, like CREAO analysis reports.
 export async function saveAssistantReply(
   ctx: MutationCtx,
-  args: { userId: Id<"users">; text: string; channel: "app" | "telegram"; urgent: boolean },
+  args: { userId: Id<"users">; text: string; channel: "app" | "telegram"; urgent: boolean; kind?: "links" },
   deliver = true,
 ) {
   const messageId = await ctx.db.insert("messages", { ...args, role: "assistant" });

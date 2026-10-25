@@ -3,6 +3,7 @@ import { registerStaticRoutes } from "@convex-dev/static-hosting";
 import { httpAction } from "./_generated/server";
 import { components, internal } from "./_generated/api";
 import { auth } from "./auth";
+import { ttsStream } from "./voice";
 
 const http = httpRouter();
 auth.addHttpRoutes(http);
@@ -68,6 +69,9 @@ http.route({
     return new Response("ok");
   }),
 });
+
+// Streamed MP3 of one of the caller's replies, for voice mode on iOS/Android (see voice.ts).
+http.route({ path: "/tts", method: "GET", handler: ttsStream });
 
 // The Expo web app (uploaded with `npm run deploy:web`). Registered last: exact routes above win over this catch-all.
 registerStaticRoutes(http, components.staticHosting);
